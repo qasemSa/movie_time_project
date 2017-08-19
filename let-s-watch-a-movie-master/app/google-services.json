@@ -1,0 +1,42 @@
+{
+  "project_info": {
+    "project_number": "164776006316",
+    "firebase_url": "https://ras-pi-164211.firebaseio.com",
+    "project_id": "ras-pi-164211",
+    "storage_bucket": "ras-pi-164211.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:164776006316:android:73191dde1b138ae8",
+        "android_client_info": {
+          "package_name": "com.aws.bakero.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "164776006316-5gqnen0ahqbnd1rp2chtorc84qt4bu74.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHqA3GieaWTaWNm3Kq44cnnree5VanQTc"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1,
+          "other_platform_oauth_client": []
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
