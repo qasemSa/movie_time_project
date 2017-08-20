@@ -66,7 +66,12 @@
                         android:layout_weight="1"
                         android:text="Color"
                         android:textSize="18sp" />
-
+                    <RadioButton
+                        android:id="@+id/brownRB"
+                        android:layout_width="match_parent"
+                        android:layout_height="30dp"
+                        android:layout_weight="1"
+                        android:text="Brown" />
                     <RadioButton
                         android:id="@+id/greenRB"
                         android:layout_width="match_parent"
@@ -152,6 +157,13 @@
                         android:layout_weight="1"
                         android:text="brightness"
                         android:textSize="18sp" />
+
+                    <RadioButton
+                        android:id="@+id/RB0"
+                        android:layout_width="match_parent"
+                        android:layout_height="30dp"
+                        android:layout_weight="1"
+                        android:text="0" />
 
                     <RadioButton
                         android:id="@+id/RB1"
