@@ -29,6 +29,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -127,16 +128,20 @@ public class AndroidMobilePushApp extends Activity {
         ins = this;
         String str = prefs.getString("state","error");
         tView.setText(str);
-        ImageButton imgBtn = (ImageButton)findViewById(R.id.imageButton);
+        final ImageButton imgBtn = (ImageButton)findViewById(R.id.imageButton);
         imgBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 LinearLayout aaa = (LinearLayout)findViewById(R.id.choose_color);
+                float deg = imgBtn.getRotation();
                 if(aaa.getVisibility() == View.VISIBLE){
+                    deg += 90F;
                     aaa.setVisibility(View.INVISIBLE);
                 }else{
+                    deg -= 90F;
                     aaa.setVisibility(View.VISIBLE);
                 }
+                imgBtn.animate().rotation(deg).setInterpolator(new AccelerateDecelerateInterpolator());
             }
         });
 

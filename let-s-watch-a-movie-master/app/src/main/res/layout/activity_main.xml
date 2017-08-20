@@ -38,7 +38,8 @@
                 android:layout_alignParentTop="true"
                 android:scaleType="fitCenter"
                 android:visibility="visible"
-                app:srcCompat="@drawable/yeelight" />
+                android:background="@drawable/yeelight"
+                android:src="@drawable/yeelight" />
 
             <LinearLayout
                 android:id="@+id/choose_color"
@@ -48,6 +49,7 @@
                 android:layout_alignParentRight="true"
                 android:layout_below="@+id/imageButton"
                 android:background="@color/cast_intro_overlay_button_background_color"
+                android:visibility="invisible"
                 android:orientation="horizontal">
 
                 <RadioGroup

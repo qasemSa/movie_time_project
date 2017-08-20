@@ -2,7 +2,7 @@
 
     <string name="app_name">Amazon Mobile Push</string>
     <string name="action_settings">Settings</string>
-    <!-- TODO: Enter your project number -->
+    <!-- 164776006316 -->
     <string name="project_number">164776006316</string>
     <string name="introduction">Welcome! </string>
     <string name="clear_screen">Clear Screen</string>
