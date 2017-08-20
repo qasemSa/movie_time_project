@@ -39,6 +39,7 @@
                 android:scaleType="fitCenter"
                 android:visibility="visible"
                 android:background="@drawable/yeelight"
+                android:animateLayoutChanges="true"
                 android:src="@drawable/yeelight" />
 
             <LinearLayout
@@ -50,6 +51,7 @@
                 android:layout_below="@+id/imageButton"
                 android:background="@color/cast_intro_overlay_button_background_color"
                 android:visibility="invisible"
+                android:animateLayoutChanges="true"
                 android:orientation="horizontal">
 
                 <RadioGroup

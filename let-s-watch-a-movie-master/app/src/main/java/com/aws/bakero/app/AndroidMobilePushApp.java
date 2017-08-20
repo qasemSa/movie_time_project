@@ -132,14 +132,16 @@ public class AndroidMobilePushApp extends Activity {
         imgBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                LinearLayout aaa = (LinearLayout)findViewById(R.id.choose_color);
+                LinearLayout choose_color_layout = (LinearLayout)findViewById(R.id.choose_color);
                 float deg = imgBtn.getRotation();
-                if(aaa.getVisibility() == View.VISIBLE){
+                if(choose_color_layout.getVisibility() == View.VISIBLE){
                     deg += 90F;
-                    aaa.setVisibility(View.INVISIBLE);
+                    choose_color_layout.animate().alpha(0.5f);
+                    choose_color_layout.setVisibility(View.INVISIBLE);
                 }else{
                     deg -= 90F;
-                    aaa.setVisibility(View.VISIBLE);
+                    choose_color_layout.animate().alpha(1.0f);
+                    choose_color_layout.setVisibility(View.VISIBLE);
                 }
                 imgBtn.animate().rotation(deg).setInterpolator(new AccelerateDecelerateInterpolator());
             }
