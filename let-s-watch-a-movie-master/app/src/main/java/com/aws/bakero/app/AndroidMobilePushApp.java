@@ -33,23 +33,39 @@ import android.view.animation.AccelerateDecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.TableLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.http.AmazonHttpClient;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
+import com.amazonaws.services.cognitoidentity.AmazonCognitoIdentity;
+import com.amazonaws.services.iot.AWSIotClient;
+import com.amazonaws.services.iot.client.AWSIotException;
+import com.amazonaws.services.iot.client.AWSIotMqttClient;
+import com.amazonaws.services.iot.client.AWSIotTopic;
+import com.amazonaws.services.iot.client.sample.sampleUtil.SampleUtil;
+import com.amazonaws.services.iot.model.UpdateThingRequest;
+import com.amazonaws.services.iotdata.AWSIotDataClient;
 import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.CreatePlatformEndpointRequest;
 import com.amazonaws.services.sns.model.CreatePlatformEndpointResult;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
+
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.MalformedURLException;
-import java.net.URL;
+
 // Requires Android 2.2 or higher, Google Play Services on the target device, and an active google account on the device.
 
 public class AndroidMobilePushApp extends Activity {
@@ -107,12 +123,45 @@ public class AndroidMobilePushApp extends Activity {
             }
         }.execute(null, null, null);
     }
+
     private void registerPhone(){
         GoogleCloudMessaging gcm = GoogleCloudMessaging.getInstance(getBaseContext());
         if(prefs.getBoolean(getString(R.string.first_launch), true)){
             register(gcm);
         }
     }
+
+    private void send_status_to_pi(final String color,final Integer brightness){
+        new AsyncTask(){
+            protected Object doInBackground(final Object ... params) {
+                String clientEndpoint = "a18cbjggcfl7xb.iot.us-east-1.amazonaws.com";       // replace <prefix> and <region> with your own
+                String clientId = "qasem";                              // replace with your own client ID. Use unique client IDs for concurrent connections.
+                AWSIotMqttClient client = new AWSIotMqttClient(clientEndpoint, clientId,"AKIAIEMBOEMXDY6V5LDA",
+                        "EkppIWBRfZSCD0KM4cSB+sfhj+HtVcZ2dUDZ6FwS");
+                JSONObject msg = new JSONObject();
+                JSONObject state = new JSONObject();
+                JSONObject reported = new JSONObject();
+                try {
+                    reported.put("color",color);
+                    reported.put("brightness",brightness);
+                    state.put("reported",reported);
+                    msg.put("state",state);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                try {
+                    client.connect();
+                    AWSIotTopic topic = new AWSIotTopic("$aws/things/RasPi3/shadow/update");
+                    client.publish("$aws/things/RasPi3/shadow/update", msg.toString());
+                    client.disconnect();
+                } catch (AWSIotException e) {
+                    e.printStackTrace();
+                }
+                return true;
+            }
+        }.execute();
+    }
+
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("myPrefs", Context.MODE_PRIVATE);
@@ -138,15 +187,27 @@ public class AndroidMobilePushApp extends Activity {
                     deg += 90F;
                     choose_color_layout.animate().alpha(0.5f);
                     choose_color_layout.setVisibility(View.INVISIBLE);
+
+                    RadioGroup colorRG = (RadioGroup) findViewById(R.id.colorRG);
+                    RadioGroup brightnessRG = (RadioGroup) findViewById(R.id.brightnessRG);
+                    int colorButtonID = colorRG.getCheckedRadioButtonId();
+                    int brightnessButtonID = brightnessRG.getCheckedRadioButtonId();
+                    RadioButton colorButton = (RadioButton) findViewById(colorButtonID);
+                    RadioButton brightnessButton = (RadioButton) findViewById(brightnessButtonID);
+
+                    String color = ((String) colorButton.getText());
+                    Integer brightness = Integer.valueOf((String) (brightnessButton.getText()));
+                    send_status_to_pi(color,brightness);
+                    Toast.makeText(getApplicationContext(),"color and brightness of YeeLight updated", Toast.LENGTH_SHORT).show();
                 }else{
                     deg -= 90F;
                     choose_color_layout.animate().alpha(1.0f);
                     choose_color_layout.setVisibility(View.VISIBLE);
+
                 }
                 imgBtn.animate().rotation(deg).setInterpolator(new AccelerateDecelerateInterpolator());
             }
         });
-
     }
     public void onDestroy(){
         super.onDestroy();

@@ -18,6 +18,15 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    packagingOptions {
+        exclude 'META-INF/LICENSE'
+    }
+}
+
+repositories {
+    maven {
+        url  "https://repo.eclipse.org/content/repositories/paho-releases/"
+    }
 }
 
 dependencies {
@@ -25,10 +34,17 @@ dependencies {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
     //apply plugin: 'com.google.gms.google-services'
+    compile 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.0.2'
+    compile 'org.eclipse.paho:org.eclipse.paho.android.service:1.0.2'
     compile 'com.amazonaws:aws-android-sdk-core:2.2.+'
     compile 'com.amazonaws:aws-android-sdk-s3:2.2.+'
     compile 'com.amazonaws:aws-android-sdk-ddb:2.2.+'
+    compile 'com.amazonaws:aws-iot-device-sdk-java:1.1.1'
+    compile 'com.amazonaws:aws-iot-device-sdk-java-samples:1.1.1'
+    compile 'com.fasterxml.jackson.core:jackson-core:2.7.4'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.7.4'
     compile 'com.amazonaws:aws-android-sdk-sns:2.2.+'
+    compile 'com.amazonaws:aws-android-sdk-iot:2.2.+'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
     testCompile 'junit:junit:4.12'
     compile 'com.google.android.gms:play-services:10.2.1'

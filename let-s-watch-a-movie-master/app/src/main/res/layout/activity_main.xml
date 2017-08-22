@@ -57,10 +57,10 @@
                 <RadioGroup
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_weight="1">
+                    android:layout_weight="1"
+                    android:id="@+id/colorRG">
 
                     <TextView
-                        android:id="@+id/ColorTV"
                         android:layout_width="match_parent"
                         android:layout_height="30dp"
                         android:layout_weight="1"
@@ -148,10 +148,10 @@
                 <RadioGroup
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_weight="1" >
+                    android:layout_weight="1"
+                    android:id="@+id/brightnessRG">
 
                     <TextView
-                        android:id="@+id/brightnessTV"
                         android:layout_width="wrap_content"
                         android:layout_height="30dp"
                         android:layout_weight="1"
