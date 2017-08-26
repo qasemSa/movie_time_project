@@ -31,6 +31,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.animation.AccelerateDecelerateInterpolator;
+import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -142,6 +143,27 @@ public class AndroidMobilePushApp extends Activity {
         }
         MovieTimeInSeconds = between_date("0:0:0:" + prefs.getString("movie_total_time","0:0:0")
                 ,"0:0:0:0:0:0");
+        String movie_mode = prefs.getString("movie_mode","****");
+        final Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
+        final Button StopButton = (Button)findViewById(R.id.buttonStop);
+        final Button StartButton = (Button)findViewById(R.id.buttonStart);
+        if(movie_mode.equals("playing")){
+            PlayButton.setBackgroundColor(0xffffbb33);
+            PlayButton.setText("Pause");
+            StopButton.setEnabled(true);
+            StartButton.setEnabled(false);
+            PlayButton.setEnabled(true);
+        }else if (movie_mode.equals("paused")){
+            PlayButton.setBackgroundColor(0xff99cc00);
+            PlayButton.setText("Play");
+            StopButton.setEnabled(true);
+            StartButton.setEnabled(false);
+            PlayButton.setEnabled(true);
+        }else if(movie_mode.equals("stopped")){
+            StopButton.setEnabled(false);
+            StartButton.setEnabled(true);
+            PlayButton.setEnabled(false);
+        }
     }
 
 
@@ -188,7 +210,7 @@ public class AndroidMobilePushApp extends Activity {
         }
     }
 
-    private void send_status_to_pi(final String color,final Integer brightness){
+    private void send_status_to_pi(final String color,final Integer brightness,final String movie_mode,final String change){
         new AsyncTask(){
             protected Object doInBackground(final Object ... params) {
                 String clientEndpoint = "a18cbjggcfl7xb.iot.us-east-1.amazonaws.com";       // replace <prefix> and <region> with your own
@@ -201,7 +223,9 @@ public class AndroidMobilePushApp extends Activity {
                 try {
                     reported.put("color",color);
                     reported.put("brightness",brightness);
+                    reported.put("movie_mode",movie_mode);
                     state.put("reported",reported);
+                    state.put("change",change);
                     msg.put("state",state);
                 } catch (JSONException e) {
                     e.printStackTrace();
@@ -297,7 +321,7 @@ public class AndroidMobilePushApp extends Activity {
                     String color = ((String) colorButton.getText());
                     Integer brightness = Integer.valueOf((String) (brightnessButton.getText()));
                     if(colorRG.getChildAt(1).isEnabled()){
-                        send_status_to_pi(color,brightness);
+                        send_status_to_pi(color,brightness,"","yeeLight");
                         Toast.makeText(getApplicationContext(),"color and brightness of YeeLight updated", Toast.LENGTH_SHORT).show();
                     }
                 }else{
@@ -310,6 +334,47 @@ public class AndroidMobilePushApp extends Activity {
             }
         });
         initialization();
+        final Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
+        PlayButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(PlayButton.getText().equals("Play")){
+                    PlayButton.setBackgroundColor(0xffffbb33);
+                    send_status_to_pi("",-1,"play","movie");
+                    PlayButton.setText("Pause");
+                }else {
+                    PlayButton.setBackgroundColor(0xff99cc00);
+                    send_status_to_pi("",-1,"pause","movie");
+                    PlayButton.setText("Play");
+                }
+            }
+        });
+        final Button StartButton = (Button)findViewById(R.id.buttonStart);
+        StartButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                send_status_to_pi("",-1,"start","movie");
+                StartButton.setEnabled(false);
+                final Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
+                PlayButton.setEnabled(true);
+                final Button StopButton = (Button)findViewById(R.id.buttonStop);
+                StopButton.setEnabled(true);
+            }
+        });
+        final Button StopButton = (Button)findViewById(R.id.buttonStop);
+        StopButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                send_status_to_pi("",-1,"stop","movie");
+                StopButton.setEnabled(false);
+                final Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
+                PlayButton.setBackgroundColor(0xffffbb33);
+                PlayButton.setText("Pause");
+                PlayButton.setEnabled(false);
+                final Button StartButton = (Button)findViewById(R.id.buttonStart);
+                StartButton.setEnabled(true);
+            }
+        });
 
         String[] DateString = prefs.getString("movie_total_time","0:0:0").split(":");
         Date d1 = new Date(0,0,0,Integer.parseInt(DateString[0]),Integer.parseInt(DateString[1])

@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Amazon Mobile Push</string>
+    <string name="action_settings">Settings</string>
+    <!-- TODO: Enter your project number -->
+    <string name="project_number"></string>
+    <string name="introduction">Welcome! </string>
+    <string name="clear_screen">Clear Screen</string>
+    <string name="first_launch">First Launch</string>
+    <string name="num_of_missed_messages">MissedMessageCount</string>
+    <string name="lines_of_message_count">LinesOfMessageCount</string>
+    <string name="preferences">PreferencesFile</string>
+    <string name="notification_number">1337</string>
+    <string name="title_activity_main">MainActivity</string>
+</resources>
