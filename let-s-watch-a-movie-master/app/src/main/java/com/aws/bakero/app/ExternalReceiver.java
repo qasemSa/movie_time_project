@@ -12,16 +12,22 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.support.v4.app.NotificationCompat;
 import android.text.format.Formatter;
 import android.util.Log;
 import android.widget.TextView;
+
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Date;
+
+import javax.xml.datatype.Duration;
 
 import static android.os.Build.*;
 
@@ -34,11 +40,62 @@ public class ExternalReceiver extends BroadcastReceiver {
         if (state.contains("EndpointArn")){
             return;
         }
+
         SharedPreferences prefs = context.getSharedPreferences("myPrefs",
                 Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putString("myIP","0");
-        char c = state.charAt(state.length()-1);
+        int yeeLightSittingsChanged = 0;
+        JSONObject obj;
+        String IP;
+        String MovieName;
+        String MovieMode;
+        try {
+            obj = new JSONObject(state);
+            yeeLightSittingsChanged = obj.getInt("yeeLight_sittings_changed");
+            if(yeeLightSittingsChanged == 0){
+                IP = obj.getString("IP");
+                MovieName = obj.getString("movie_name");
+                MovieMode = obj.getString("movie_mode");
+                String x = obj.getString("gmt_time");
+                String[] oldDateString = x.split(":");
+                String[] newDateString = prefs.getString("movie_name","0:0:0:0:0:0").split(":");
+                if(MovieMode.equals("stopped")){
+                    editor.putLong("period",0);
+                    editor.putLong("timer",0);
+                }else{
+                    if (MovieMode.equals("paused") &&
+                            prefs.getString("movie_mode","****").equals("playing")){
+                        Date date1 = new Date(Integer.parseInt(oldDateString[0]),
+                                Integer.parseInt(oldDateString[1]), Integer.parseInt(oldDateString[2]),
+                                Integer.parseInt(oldDateString[3]), Integer.parseInt(oldDateString[4]),
+                                Integer.parseInt(oldDateString[5]));
+                        Date date2 = new Date(Integer.parseInt(newDateString[0]),
+                                Integer.parseInt(newDateString[1]), Integer.parseInt(newDateString[2]),
+                                Integer.parseInt(newDateString[3]), Integer.parseInt(newDateString[4]),
+                                Integer.parseInt(newDateString[5]));
+                        editor.putLong("period",(date1.getTime()-date2.getTime())/1000
+                                + prefs.getLong("period",0));
+                        editor.putLong("timer",prefs.getLong("period",0));
+                    }
+                }
+                editor.putString("IP",IP);
+                editor.putString("movie_mode",MovieMode);
+                editor.putString("movie_name",MovieName);
+                editor.putString("movie_total_time",obj.getString("movie_total_time"));
+                editor.putString("movie_played_percent",obj.getString("movie_played_percent"));
+                editor.putString("color",obj.getString("color"));
+                editor.putInt("brightness",obj.getInt("brightness"));
+                editor.putString("gmt_time",x);
+                editor.commit();
+            }else{
+                IP = prefs.getString("IP","****");
+                MovieName = prefs.getString("movie_name","****");
+                MovieMode = prefs.getString("movie_mode","****");
+            }
+        } catch (Throwable t) {
+            return;
+        }
 
         new AsyncTask(){
             protected Object doInBackground(final Object... params) {
@@ -68,33 +125,36 @@ public class ExternalReceiver extends BroadcastReceiver {
 
         while (prefs.getString("myIP","0").equals("0"));
 
-        final PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, new Intent(context,AndroidMobilePushApp.class), Notification.DEFAULT_LIGHTS | Notification.FLAG_AUTO_CANCEL);
-        final Notification notification = new NotificationCompat.Builder(context).setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(prefs.getString("myIP","0"))
-                .setContentText("")
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true)
-                .getNotification();
-        mNotificationManager.notify(R.string.notification_number, notification);
 
-        AudioManager mgr = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-        if(c == '1'){
-            editor.putInt("RingerMode",mgr.getRingerMode());
-            editor.commit();
-            if(VERSION.SDK_INT <= 22){
-                mgr.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
+        String MyIP = prefs.getString("myIP","****");
+
+
+        if ( (IP.equals(MyIP) || MovieMode.equals("stopped") || MovieMode.equals("playing"))
+                && yeeLightSittingsChanged == 0){
+            final PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, new Intent(context,AndroidMobilePushApp.class), Notification.DEFAULT_LIGHTS | Notification.FLAG_AUTO_CANCEL);
+            final Notification notification = new NotificationCompat.Builder(context).setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle(MovieName+" is " + MovieMode)
+                    .setContentText("")
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true)
+                    .getNotification();
+            mNotificationManager.notify(R.string.notification_number, notification);
+        }
+        if ( IP.equals(MyIP)){
+            AudioManager mgr = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+            if(MovieMode.equals("stopped")){
+                mgr.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
             }else{
-                mgr.setRingerMode(AudioManager.RINGER_MODE_SILENT);
+                if(VERSION.SDK_INT <= 22){
+                    mgr.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
+                }else{
+                    mgr.setRingerMode(AudioManager.RINGER_MODE_SILENT);
+                }
             }
-        }else if(c == '0'){
-            mgr.setRingerMode(prefs.getInt("RingerMode",AudioManager.RINGER_MODE_NORMAL));
         }
 
-        editor.putString("state",state);
-        editor.commit();
         if(prefs.getBoolean("isOpen", false)){
-            AndroidMobilePushApp.getIns().updateTheTextView(state);
+            AndroidMobilePushApp.getIns().updateTheTextView();
         }
     }
 }
-
