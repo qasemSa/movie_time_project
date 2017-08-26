@@ -3,25 +3,25 @@
 #required libraries
 import ssl
 import paho.mqtt.client as mqtt
-#import RPi.GPIO as GPIO
+import RPi.GPIO as GPIO
 import time
 
-#GPIO.setmode(GPIO.BCM)
-#GPIO.setup(18, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(18, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
-#!/usr/bin/python
 #ghpe0215
 import subprocess
 import os
 import socket
 import json
-import urllib2
+import urllib.request as urllib2
 import base64
 import sys
 import time
 import os
 import json
-
+from random import randint
+counter = 0
 config = {}
 yeelight_ip = "192.168.43.133"
 yeelight_port = 55443
@@ -56,20 +56,21 @@ def getJsonRemote(host,port,username,password,method,parameters):
     values["id"] = "1"
     headers = {"Content-Type":"application/json",}
     # Format the data
-    data = json.dumps(values)
+    data = (json.dumps(values)).encode('utf-8')
     # Now we're just about ready to actually initiate the connection
-    req = urllib2.Request(url, data, headers)
+    req = urllib2.Request(url)
     # This fork kicks in only if both a username & password are provided
     if username and password:
         # This properly formats the provided username & password and adds them to the request header
-        base64string = base64.encodestring('%s:%s' % (username, password)).replace('\n', '')
+        base64string = base64.encodestring(('%s:%s' % (username,password)).encode()).decode().replace('\n', '')
         req.add_header("Authorization", "Basic %s" % base64string)
     # Now we're ready to talk to Kody
     # I wrapped this up in a try: statement to allow for graceful error handling
     try:
-        response = urllib2.urlopen(req)
+        req.add_header("Content-Type","application/json")
+        response = urllib2.urlopen(req,data)
         response = response.read()
-        response = json.loads(response)
+        response = json.loads(response.decode('utf-8'))
         # A lot of the Kodi responses include the value "result", which lets you know how your call went
         # This logic fork grabs the value of "result" if one is present, and then returns that.
         # Note, if no "result" is included in the response from Kodi, the JSON response is returned instead.
@@ -85,7 +86,7 @@ def getJsonRemote(host,port,username,password,method,parameters):
 
 def kodiRemoteControl(action):
     response = getJsonRemote(config["kodi"]["ip"], config["kodi"]["port"], config["kodi"]["username"], config["kodi"]["password"], action["method"], action["parameters"])
-    print response
+    print(response)
     return response
 
 def kodiInit():
@@ -99,7 +100,7 @@ def kodiPlayerStop():
                 "playerid": 1
         }
         }
-                kodiRemoteControl(action)
+    kodiRemoteControl(action)
 
 def kodiPlayPause():
     action = {
@@ -108,7 +109,7 @@ def kodiPlayPause():
                 "playerid": 1
         }
         }
-                kodiRemoteControl(action)
+    kodiRemoteControl(action)
 
 def kodiPlayerGetProperty(playerId):
     action = {
@@ -131,23 +132,24 @@ def kodiIsActive():
     for player in response:
         player_speed = kodiPlayerGetProperty(player["playerid"])["speed"]
         if player_speed != 0:
-            print "kode is active"
-            return False
-    return True
+            print ("kode is active")
+            return True
+    return False
 
 def kodiPlayerGetItemLabel():
     action = {
         "method": "Player.GetItem",
             "parameters": {
             "playerid": 1,
+            "properties": ["title"]
             }
         }
-    response = kodiRemoteControl(action)["item"]["label"]
+    response = kodiRemoteControl(action)
     return response
 
-movies = os.listdir("/Users/qasemsayah/Desktop/sample_movies")
+movies = os.listdir("/home/pi/Desktop/sample_movies")
 index = randint(0, len(movies)-1)
-chosen_movie = "/Users/qasemsayah/Desktop/sample_movies/" + movies[index]
+chosen_movie = "/home/pi/Desktop/sample_movies/" + movies[index]
 
 config = {
     "kodi": {
@@ -172,9 +174,10 @@ def operate_on_bulb(method,params):
         tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         tcp_socket.connect((yeelight_ip,yeelight_port))
         msg="{\"id\":1,\"method\":\""
-        msg += method + "\",\"params\":[" + params + "]}\r\n"
-        tcp_socket.send(msg)
-        answer = tcp_socket.recv()
+        msg = msg + method + "\",\"params\":[" + params + "]}\r\n"
+        tcp_socket.send(msg.encode('utf-8'))
+        answer = tcp_socket.recv(2048)
+        answer = json.loads(answer.decode('utf-8'))
         print (answer)
         tcp_socket.close()
         return answer
@@ -196,13 +199,17 @@ def yeelight_set_bright(brightness):
 def yeelight_set_color(color): #string color
     operate_on_bulb("set_rgb",str(int(colors[color])))
 
-def yeelight_set_rgb(rgb) # from 0 to 16777215 (hex: 0xFFFFFF)
+def yeelight_set_rgb(rgb): # from 0 to 16777215 (hex: 0xFFFFFF)
     operate_on_bulb("set_rgb",str(color))
 
 def yeelight_get_prop():
     ans = operate_on_bulb("get_prop","\"rgb\",\"bright\"")
-    color_before = ans["color"]
-    brightness_before = ans["brightness"]
+    ans = ans['result']
+    global color_before
+    global brightness_before
+    color_before = ans[0]
+    brightness_before = ans[1]
+    print (color_before,brightness_before)
 
 #called while client tries to establish connection with the server
 def on_connect(mqttc, obj, flags, rc):
@@ -221,16 +228,34 @@ def on_message(mqttc, obj, msg):
     if msg.topic == "$aws/things/RasPi3/shadow/update":
         tmp = ((msg.payload).decode("utf-8"))
         message = json.loads(tmp)
-        color = message["state"]["reported"]["color"]
-        brightness = message["state"]["reported"]["brightness"]
-        print (color,brightness)
-        if brightness > 0:
-            yeelight_on()
-            yeelight_set_bright(brightness)
-            yeelight_set_color(colors[color])
-        else :
-            yeelight_off()
-
+        change = message["state"]["change"]
+        if change == "yeeLight":
+            global color
+            global brightness
+            color = message["state"]["reported"]["color"]
+            brightness = message["state"]["reported"]["brightness"]
+            publish_yeeLight_settings_to_android(color,brightness)
+            print (color,brightness)
+            if brightness > 0:
+                yeelight_on()
+                yeelight_set_bright(brightness*10)
+                yeelight_set_color(color)
+            else :
+                yeelight_off()
+        if change == "movie":
+            movie_mode = message["state"]["reported"]["movie_mode"]
+            if movie_mode == "play":
+                publish_play_to_android()
+                kodiPlayPause()
+            if movie_mode == "pause":
+                publish_play_to_android()
+                kodiPlayPause()
+            if movie_mode == "start":
+                start_movie()
+                publish_play_to_android()
+            if movie_mode == "stop":
+                kodiPlayerStop()
+                publish_to_android("stopped")
 #creating a client with client-id=mqtt-test
 mqttc = mqtt.Client("qasemSa",True,None,mqtt.MQTTv31)
 
@@ -240,9 +265,9 @@ mqttc.on_message = on_message
 
 #Configure network encryption and authentication options. Enables SSL/TLS support.
 #adding client-side certificates and enabling tlsv1.2 support as required by aws-iot service
-mqttc.tls_set("/Users/qasemsayah/Desktop/python_folder/NewSDK/root-CA.crt",
-	            certfile="/Users/qasemsayah/Desktop/python_folder/NewSDK/3db3a6dca1-certificate.pem.crt",
-	            keyfile="/Users/qasemsayah/Desktop/python_folder/NewSDK/3db3a6dca1-private.pem.key",
+mqttc.tls_set("/home/pi/Desktop/NewSDK/root-CA.crt",
+	            certfile="/home/pi/Desktop/NewSDK/3db3a6dca1-certificate.pem.crt",
+	            keyfile="/home/pi/Desktop/NewSDK/3db3a6dca1-private.pem.key",
               tls_version= ssl.PROTOCOL_TLSv1_2,
               ciphers=None)
 print("aaaa")
@@ -268,85 +293,103 @@ payload = json.dumps({
 })
 #mqttc.publish("$aws/things/RasPi3/shadow/update",payload)
 #mqttc.publish("my/topic"," sss 1")
-
-def publish_play_to_android():
-    movie_name = kodiPlayerGetItemLabel()
+def publish_to_android(movie_mode):
+    movie_name = kodiPlayerGetItemLabel()["item"]["label"]
     movie_prop = kodiPlayerGetProperty(1)
-    movie_total_time = movie_prop["totaltime"]["hours"]+":"+movie_prop["totaltime"]["minutes"]+":"+movie_prop["totaltime"]["seconds"]
+    movie_total_time = str(movie_prop["totaltime"]["hours"])+":"+str(movie_prop["totaltime"]["minutes"])+":"+str(movie_prop["totaltime"]["seconds"])
     movie_played_percentage = movie_prop["percentage"]
+    t = time.gmtime()
+    t_time = str(t.tm_year)+":"+str(t.tm_mon)+":"+str(t.tm_mday)+":"+str(t.tm_hour)+":"+str(t.tm_min)+":"+str(t.tm_sec)
     message = json.dumps({
                          "IP": ip,
-                         "movie_mode": "playing",
+                         "movie_mode": movie_mode,
                          "movie_name": movie_name,
                          "movie_total_time": movie_total_time,
                          "movie_played_percent": movie_played_percentage,
                          "color": color,
                          "brightness": brightness,
+                         "yeeLight_sittings_changed": 0,
+                         "gmt_time": t_time
                          })
-        mqttc.publish("my/topic",message)
+    mqttc.publish("my/topic",message)
+
+def publish_play_to_android():
+    publish_to_android("playing")
 
 def publish_pause_to_android():
-    movie_name = kodiPlayerGetItemLabel()
-    movie_prop = kodiPlayerGetProperty(1)
-    movie_total_time = movie_prop["totaltime"]["hours"]+":"+movie_prop["totaltime"]["minutes"]+":"+movie_prop["totaltime"]["seconds"]
-    movie_played_percentage = movie_prop["percentage"]
+    publish_to_android("paused")
+
+def publish_yeeLight_settings_to_android(color,brightness):
     message = json.dumps({
                          "IP": ip,
-                         "movie_mode": "paused",
-                         "movie_name": movie_name,
-                         "movie_total_time": movie_total_time,
-                         "movie_played_percent": movie_played_percentage,
-                         "color": color_before,
-                         "brightness": brightness_before,
+                         "color": color,
+                         "brightness": brightness,
+                         "yeeLight_sittings_changed": 1,
                          })
-    mqttc.publish ("my/topic",message)
-
-def buttonPressed():
-    if first_launch :
-        if "Connection refused" not in kodiPlayerGetItemLabel() :# if kodi is running
-            if kodiIsActive():
-                return
-            else :
-                #send init message
-                kodiInit()
-                publish_play_to_android()
-                is_movie_playing = True
-                first_launch = False
-        else :
-                #launch kodi
-                pid = os.fork()
-                if pid = 0:
-                    os.system("kodi")
-                else :
-                    time.sleep(4)
-                    kodiInit()
-                    publish_play_to_android()
-                    is_movie_playing = True
-                    first_launch = False
-    else if !is_movie_playing :
-        #play movie
-        publish_play_to_android()
-        is_movie_playing = True
-    else if is_movie_playing :
-        #pause movie
-        publish_pause_to_android()
-        is_movie_playing = False
-
-GPIO.add_event_detect(18, GPIO.FALLING, buttonPressed, bouncetime=2000)
+    mqttc.publish("my/topic",message)
 
 first_launch = True
 is_movie_playing = False
-#while True:
-#    input_state = GPIO.input(18)
-#    if input_state == False:
-#        print('Button Pressed on')
-#        if flag :
-#mqttc.publish("my/topic"," sss 1")
-#        else :
-#            mqttc.publish("my/topic",ip+" 0")
-#        flag = 1-flag
-#        time.sleep(1)
 
+def start_movie():
+    global first_launch
+    global is_movie_playing
+    if "Connection refused" not in kodiPlayerGetItemLabel() :# if kodi is running
+        print("*******")
+        print(kodiIsActive())
+        if not kodiIsActive():
+            #send init message
+            kodiInit()
+            publish_play_to_android()
+            print('first launch kodi is running')
+            is_movie_playing = True
+            first_launch = False
+    else :
+        #launch kodi
+        pid = os.fork()
+        if pid == 0:
+        #GPIO.remove_event_detect(18)
+            os.system("kodi")
+            os._exit(1)
+            print("i'm a the son thread")
+        else :
+            time.sleep(5)
+            kodiInit()
+            publish_play_to_android()
+            print('first launch kodi is not running')
+            is_movie_playing = True
+            first_launch = False
+            
+def buttonPressed(x):
+    global first_launch
+    global is_movie_playing
+    global counter
+    counter = counter +1
+    print ("counter *************** " +str(counter))
+    passed_something = False
+    if first_launch and not passed_something :
+        passed_something = True
+        start_movie()
+    else:
+        if not is_movie_playing and not passed_something:
+            #play movie
+            passed_something = True
+            kodiPlayPause()
+            publish_play_to_android()
+            print('play movie')
+            is_movie_playing = True
+            passed_something = True
+        if is_movie_playing and not passed_something :
+            #pause movie
+            passed_something = True
+            kodiPlayPause()
+            publish_pause_to_android()
+            print('pause movie')
+            is_movie_playing = False
+
+GPIO.add_event_detect(18, GPIO.FALLING, buttonPressed, bouncetime=2000)
+yeelight_get_prop()
+print (color_before)
 #automatically handles reconnecting+
 mqttc.loop_forever()
 
