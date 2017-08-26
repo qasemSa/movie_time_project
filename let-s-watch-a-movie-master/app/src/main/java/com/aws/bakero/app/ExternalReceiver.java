@@ -32,7 +32,6 @@ import javax.xml.datatype.Duration;
 import static android.os.Build.*;
 
 public class ExternalReceiver extends BroadcastReceiver {
-
     public void onReceive(final Context context, Intent intent) {
         final NotificationManager mNotificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         Bundle extras = intent.getExtras();
@@ -57,36 +56,24 @@ public class ExternalReceiver extends BroadcastReceiver {
                 IP = obj.getString("IP");
                 MovieName = obj.getString("movie_name");
                 MovieMode = obj.getString("movie_mode");
-                String x = obj.getString("gmt_time");
-                String[] oldDateString = x.split(":");
-                String[] newDateString = prefs.getString("movie_name","0:0:0:0:0:0").split(":");
                 if(MovieMode.equals("stopped")){
-                    editor.putLong("period",0);
-                    editor.putLong("timer",0);
+                    editor.putInt("period",0);
+                    editor.putInt("timer",0);
                 }else{
-                    if (MovieMode.equals("paused") &&
-                            prefs.getString("movie_mode","****").equals("playing")){
-                        Date date1 = new Date(Integer.parseInt(oldDateString[0]),
-                                Integer.parseInt(oldDateString[1]), Integer.parseInt(oldDateString[2]),
-                                Integer.parseInt(oldDateString[3]), Integer.parseInt(oldDateString[4]),
-                                Integer.parseInt(oldDateString[5]));
-                        Date date2 = new Date(Integer.parseInt(newDateString[0]),
-                                Integer.parseInt(newDateString[1]), Integer.parseInt(newDateString[2]),
-                                Integer.parseInt(newDateString[3]), Integer.parseInt(newDateString[4]),
-                                Integer.parseInt(newDateString[5]));
-                        editor.putLong("period",(date1.getTime()-date2.getTime())/1000
-                                + prefs.getLong("period",0));
-                        editor.putLong("timer",prefs.getLong("period",0));
-                    }
+                    String[] current_time = prefs.getString("current_movie_time","0:0:0").split(":");
+                    int period = Integer.parseInt(current_time[0])*3600 +
+                            Integer.parseInt(current_time[1])*60 + Integer.parseInt(current_time[2]);
+                    editor.putInt("period",period);
+                    editor.putInt("timer",period);
                 }
                 editor.putString("IP",IP);
                 editor.putString("movie_mode",MovieMode);
                 editor.putString("movie_name",MovieName);
                 editor.putString("movie_total_time",obj.getString("movie_total_time"));
-                editor.putString("movie_played_percent",obj.getString("movie_played_percent"));
                 editor.putString("color",obj.getString("color"));
                 editor.putInt("brightness",obj.getInt("brightness"));
-                editor.putString("gmt_time",x);
+                editor.putString("gmt_time",obj.getString("gmt_time"));
+                editor.putString("current_movie_time",obj.getString("current_movie_time"));
                 editor.commit();
             }else{
                 IP = prefs.getString("IP","****");

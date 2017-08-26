@@ -82,7 +82,7 @@ public class AndroidMobilePushApp extends Activity {
     private SharedPreferences.Editor editor;
     private static AndroidMobilePushApp ins;
     private int MovieTimeInSeconds;
-    private int MovieTimeSecondsLeft;
+    private ProgressBar mProgressBar;
     Map<String, Integer> SittingsMap = new HashMap<String, Integer>();
     public static AndroidMobilePushApp getIns(){
         return ins;
@@ -105,6 +105,10 @@ public class AndroidMobilePushApp extends Activity {
                 brightnessRG.getChildAt(i).setEnabled(false);
             }
             MovieDetails.setVisibility(View.INVISIBLE);
+            String[] DateString = prefs.getString("gmt_time","0:0:0").split(":");
+            Date d1 = new Date(0,0,0,Integer.parseInt(DateString[0]),Integer.parseInt(DateString[1])
+                    ,Integer.parseInt(DateString[2]));
+            Date d2 = new Date(0,0,0,0,0,0);
         }else{
             RadioGroup colorRG = (RadioGroup) findViewById(R.id.colorRG);
             RadioGroup brightnessRG = (RadioGroup) findViewById(R.id.brightnessRG);
@@ -124,14 +128,6 @@ public class AndroidMobilePushApp extends Activity {
                 }
             }
             MovieDetails.setVisibility(View.VISIBLE);
-            SimpleDateFormat dateFormatGmt = new SimpleDateFormat("yyyy-MMM-dd HH:mm:ss");
-            dateFormatGmt.setTimeZone(TimeZone.getTimeZone("GMT"));
-
-            Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-            Date currentLocalTime = cal.getTime();
-            DateFormat date = new SimpleDateFormat("yyy:MM:dd:HH:mm:ss");
-            date.setTimeZone(TimeZone.getTimeZone("GMT"));
-            String localTime = date.format(currentLocalTime);
 
             MovieModeText.setText("movie mode: "+ prefs.getString("movie_mode","****"));
             MovieNameText.setText("movie name: "+ prefs.getString("movie_name","****"));
@@ -139,13 +135,19 @@ public class AndroidMobilePushApp extends Activity {
                     prefs.getString("movie_total_time","****"));
             colorRG.check(SittingsMap.get(prefs.getString("color","White")));
             brightnessRG.check(SittingsMap.get(Integer.toString(prefs.getInt("brightness",0))));
+            String[] DateString = prefs.getString("gmt_time","0:0:0").split(":");
+            Date d1 = new Date(0,0,0,Integer.parseInt(DateString[0]),Integer.parseInt(DateString[1])
+                    ,Integer.parseInt(DateString[2]));
+            Date d2 = new Date(0,0,0,0,0,0);
         }
+        MovieTimeInSeconds = between_date("0:0:0:" + prefs.getString("movie_total_time","0:0:0")
+                ,"0:0:0:0:0:0");
     }
 
 
     private void registerTopic(String token){
-        AWSCredentials awsCredentials = new BasicAWSCredentials("AKIAIEMBOEMXDY6V5LDA",
-                "EkppIWBRfZSCD0KM4cSB+sfhj+HtVcZ2dUDZ6FwS");
+        AWSCredentials awsCredentials = new BasicAWSCredentials("AKIAIPCCPQSVC6D7B4GQ",
+                "Iwmf8g++aLQ2EGpB8De53/GfYIEMRGtR4y/9wukO");
         String platformApplicationArn = "arn:aws:sns:us-east-1:465056667065:app/GCM/movie-time";
         AmazonSNSClient pushClient = new AmazonSNSClient(awsCredentials);
 
@@ -217,6 +219,27 @@ public class AndroidMobilePushApp extends Activity {
         }.execute();
     }
 
+    private int between_date(String date1,String date2){
+        String[] newDateString = date1.split(":");
+        String[] oldDateString = date2.split(":");
+        int yearNew = Integer.parseInt(newDateString[0]);
+        int yearOld = Integer.parseInt(oldDateString[0]);
+        int monthNew = Integer.parseInt(newDateString[1]);
+        int monthOld = Integer.parseInt(oldDateString[1]);
+        int dayNew = Integer.parseInt(newDateString[2]);
+        int dayOld = Integer.parseInt(oldDateString[2]);
+        int hourNew = Integer.parseInt(newDateString[3]);
+        int hourOld = Integer.parseInt(oldDateString[3]);
+        int minNew = Integer.parseInt(newDateString[4]);
+        int minOld = Integer.parseInt(oldDateString[4]);
+        int secNew = Integer.parseInt(newDateString[5]);
+        int secOld = Integer.parseInt(oldDateString[5]);
+        if(yearNew>yearOld || monthNew>monthOld || dayNew>dayOld){
+            return hourNew*3600 + minNew*60 + secNew + (23-hourOld)*3600 + (60-minOld)*60 +(60-secOld);
+        }
+        return (hourNew - hourOld)*3600 + (minNew - minOld)*60 + (secNew-secOld);
+    }
+    @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         SittingsMap.put("0", R.id.RB0);
@@ -246,13 +269,12 @@ public class AndroidMobilePushApp extends Activity {
         editor.putBoolean("isOpen", true);
         editor.commit();
 
-        MovieTimeInSeconds = 0;
         setContentView(R.layout.activity_main);
 
         registerPhone();
         ins = this;
 
-        ProgressBar mProgressBar = (ProgressBar)findViewById(R.id.progressBar2);;
+        mProgressBar = (ProgressBar)findViewById(R.id.progressBar2);
         mProgressBar.setScaleY(5f);
         final ImageButton imgBtn = (ImageButton)findViewById(R.id.imageButton);
         imgBtn.setOnClickListener(new View.OnClickListener() {
@@ -288,9 +310,98 @@ public class AndroidMobilePushApp extends Activity {
             }
         });
         initialization();
-        //if(!prefs.getString("movie_mode","****").equals("stopped")){
 
-        //}
+        String[] DateString = prefs.getString("movie_total_time","0:0:0").split(":");
+        Date d1 = new Date(0,0,0,Integer.parseInt(DateString[0]),Integer.parseInt(DateString[1])
+                ,Integer.parseInt(DateString[2]));
+        Date d2 = new Date(0,0,0,0,0,0);
+        MovieTimeInSeconds = between_date("0:0:0:" + prefs.getString("movie_total_time","0:0:0")
+        ,"0:0:0:0:0:0");
+
+
+        Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        String[] newDateString = prefs.getString("gmt_time","0:0:0:0:0:0").split(":");
+        cal2.set(Integer.parseInt(newDateString[0]),
+                Integer.parseInt(newDateString[1]), Integer.parseInt(newDateString[2]),
+                Integer.parseInt(newDateString[3]), Integer.parseInt(newDateString[4]),
+                Integer.parseInt(newDateString[5]));
+        Date date2 = cal2.getTime();
+
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+        Date currentLocalTime = cal.getTime();
+        DateFormat date = new SimpleDateFormat("yyy:MM:dd:HH:mm:ss");
+        date.setTimeZone(TimeZone.getTimeZone("GMT"));
+        String localTime = date.format(currentLocalTime);
+
+
+
+        TextView textV = (TextView)findViewById(R.id.textView);
+        textV.setText(Integer.toString(between_date(localTime,
+                prefs.getString("gmt_time","0:0:0:0:0:0"))));
+        textV.setText("");
+        textV.setText(Integer.toString(MovieTimeInSeconds));
+        final Thread timerThread = new Thread(){
+            @Override
+            public void run(){
+                try{
+                    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+                    Date currentLocalTime = cal.getTime();
+                    DateFormat date = new SimpleDateFormat("yyy:MM:dd:HH:mm:ss");
+                    date.setTimeZone(TimeZone.getTimeZone("GMT"));
+                    String localTime = date.format(currentLocalTime);
+
+                    while (!prefs.getString("movie_mode","****").equals("stopped")  ){
+                        sleep(200);
+                        int period = prefs.getInt("period",0) + between_date(localTime,
+                                prefs.getString("gmt_time","0:0:0:0:0:0"));
+                        if(updateProgress(period)){
+                            return;
+                        }
+                    }
+                }catch (InterruptedException e){
+
+                }
+            }
+        };
+        timerThread.start();
+        //progressBarFill();
+    }
+    /*private void progressBarFill(){
+        final Thread timerThread = new Thread(){
+            @Override
+            public void run(){
+                try{
+                    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+                    Date currentLocalTime = cal.getTime();
+                    DateFormat date = new SimpleDateFormat("yyy:MM:dd:HH:mm:ss");
+                    date.setTimeZone(TimeZone.getTimeZone("GMT"));
+                    String localTime = date.format(currentLocalTime);
+
+                    while (!prefs.getString("movie_mode","****").equals("stopped")  ){
+                        sleep(200);
+                        int period = prefs.getInt("period",0) + between_date(localTime,
+                                prefs.getString("gmt_time","0:0:0:0:0:0"));
+                        if(updateProgress(period)){
+                            return;
+                        }
+                    }
+                }catch (InterruptedException e){
+
+                }
+            }
+        };
+        timerThread.start();
+    }*/
+
+    public boolean updateProgress(final int period){
+        mProgressBar.setMax(100);
+        if(period >= MovieTimeInSeconds){
+            mProgressBar.setProgress(mProgressBar.getMax());
+            return true;
+        }else{
+            mProgressBar.setProgress(mProgressBar.getMax()*period/MovieTimeInSeconds);
+            return false;
+        }
     }
     public void onDestroy(){
         super.onDestroy();
