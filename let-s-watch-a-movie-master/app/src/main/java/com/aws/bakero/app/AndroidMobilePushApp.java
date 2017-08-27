@@ -24,6 +24,7 @@ import android.icu.text.TimeZoneFormat;
 import android.media.AudioManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.preference.PreferenceManager;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
@@ -84,6 +85,7 @@ public class AndroidMobilePushApp extends Activity {
     private static AndroidMobilePushApp ins;
     private int MovieTimeInSeconds;
     private ProgressBar mProgressBar;
+    private Handler handler = new Handler();
     Map<String, Integer> SittingsMap = new HashMap<String, Integer>();
     public static AndroidMobilePushApp getIns(){
         return ins;
@@ -95,7 +97,11 @@ public class AndroidMobilePushApp extends Activity {
             }
         });
     }
-
+    private static int progress;
+    private static int period;
+    private int periodStatus;
+    private ProgressBar progressBar;
+    private int progressStatus = 0;
     private void initialization(){
         if(prefs.getString("movie_mode","****").equals("stopped")){
             RadioGroup colorRG = (RadioGroup) findViewById(R.id.colorRG);
@@ -164,6 +170,44 @@ public class AndroidMobilePushApp extends Activity {
             StartButton.setEnabled(true);
             PlayButton.setEnabled(false);
         }
+        mProgressBar = (ProgressBar) findViewById(R.id.progressBar2);
+        mProgressBar.setScaleY(4f);
+        mProgressBar.setMax(200);
+        new Thread(new Runnable() {
+            public void run() {
+                do  {//!prefs.getString("movie_mode","****").equals("stopped")
+                    periodStatus = doSomeWork();
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            mProgressBar.setProgress(periodStatus);
+                        }
+                    });
+                } while((mProgressBar.getProgress() != mProgressBar.getMax()) && prefs.getString("movie_mode","****").equals("playing"));
+
+            }
+            private int doSomeWork() {
+                try {
+                    // ---simulate doing some work---
+                    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
+                    Date currentLocalTime = cal.getTime();
+                    DateFormat date = new SimpleDateFormat("yyy:MM:dd:HH:mm:ss");
+                    date.setTimeZone(TimeZone.getTimeZone("GMT"));
+                    String localTime = date.format(currentLocalTime);
+                    period = prefs.getInt("period", 0) + between_date(localTime,
+                            prefs.getString("gmt_time", "0:0:0:0:0:0"));
+                    if (period >= MovieTimeInSeconds) {
+                        progress = mProgressBar.getMax();
+                    } else {
+                        progress = (mProgressBar.getMax() * period) / MovieTimeInSeconds;
+                    }
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                return progress;
+            }
+        }).start();
     }
 
 
@@ -298,15 +342,14 @@ public class AndroidMobilePushApp extends Activity {
         registerPhone();
         ins = this;
 
-        mProgressBar = (ProgressBar)findViewById(R.id.progressBar2);
-        mProgressBar.setScaleY(5f);
-        final ImageButton imgBtn = (ImageButton)findViewById(R.id.imageButton);
+
+        final ImageButton imgBtn = (ImageButton) findViewById(R.id.imageButton);
         imgBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                LinearLayout choose_color_layout = (LinearLayout)findViewById(R.id.choose_color);
+                LinearLayout choose_color_layout = (LinearLayout) findViewById(R.id.choose_color);
                 float deg = imgBtn.getRotation();
-                if(choose_color_layout.getVisibility() == View.VISIBLE){
+                if (choose_color_layout.getVisibility() == View.VISIBLE) {
                     deg += 90F;
                     choose_color_layout.animate().alpha(0.5f);
                     choose_color_layout.setVisibility(View.INVISIBLE);
@@ -320,11 +363,11 @@ public class AndroidMobilePushApp extends Activity {
 
                     String color = ((String) colorButton.getText());
                     Integer brightness = Integer.valueOf((String) (brightnessButton.getText()));
-                    if(colorRG.getChildAt(1).isEnabled()){
-                        send_status_to_pi(color,brightness,"","yeeLight");
-                        Toast.makeText(getApplicationContext(),"color and brightness of YeeLight updated", Toast.LENGTH_SHORT).show();
+                    if (colorRG.getChildAt(1).isEnabled()) {
+                        send_status_to_pi(color, brightness, "", "yeeLight");
+                        Toast.makeText(getApplicationContext(), "color and brightness of YeeLight updated", Toast.LENGTH_SHORT).show();
                     }
-                }else{
+                } else {
                     deg -= 90F;
                     choose_color_layout.animate().alpha(1.0f);
                     choose_color_layout.setVisibility(View.VISIBLE);
@@ -334,58 +377,58 @@ public class AndroidMobilePushApp extends Activity {
             }
         });
         initialization();
-        final Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
+        final Button PlayButton = (Button) findViewById(R.id.buttonPlayPause);
         PlayButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if(PlayButton.getText().equals("Play")){
+                if (PlayButton.getText().equals("Play")) {
                     PlayButton.setBackgroundColor(0xffffbb33);
-                    send_status_to_pi("",-1,"play","movie");
+                    send_status_to_pi("", -1, "play", "movie");
                     PlayButton.setText("Pause");
-                }else {
+                } else {
                     PlayButton.setBackgroundColor(0xff99cc00);
-                    send_status_to_pi("",-1,"pause","movie");
+                    send_status_to_pi("", -1, "pause", "movie");
                     PlayButton.setText("Play");
                 }
             }
         });
-        final Button StartButton = (Button)findViewById(R.id.buttonStart);
+        final Button StartButton = (Button) findViewById(R.id.buttonStart);
         StartButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                send_status_to_pi("",-1,"start","movie");
+                send_status_to_pi("", -1, "start", "movie");
                 StartButton.setEnabled(false);
-                final Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
+                final Button PlayButton = (Button) findViewById(R.id.buttonPlayPause);
                 PlayButton.setEnabled(true);
-                final Button StopButton = (Button)findViewById(R.id.buttonStop);
+                final Button StopButton = (Button) findViewById(R.id.buttonStop);
                 StopButton.setEnabled(true);
             }
         });
-        final Button StopButton = (Button)findViewById(R.id.buttonStop);
+        final Button StopButton = (Button) findViewById(R.id.buttonStop);
         StopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                send_status_to_pi("",-1,"stop","movie");
+                send_status_to_pi("", -1, "stop", "movie");
                 StopButton.setEnabled(false);
-                final Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
+                final Button PlayButton = (Button) findViewById(R.id.buttonPlayPause);
                 PlayButton.setBackgroundColor(0xffffbb33);
                 PlayButton.setText("Pause");
                 PlayButton.setEnabled(false);
-                final Button StartButton = (Button)findViewById(R.id.buttonStart);
+                final Button StartButton = (Button) findViewById(R.id.buttonStart);
                 StartButton.setEnabled(true);
             }
         });
 
-        String[] DateString = prefs.getString("movie_total_time","0:0:0").split(":");
-        Date d1 = new Date(0,0,0,Integer.parseInt(DateString[0]),Integer.parseInt(DateString[1])
-                ,Integer.parseInt(DateString[2]));
-        Date d2 = new Date(0,0,0,0,0,0);
-        MovieTimeInSeconds = between_date("0:0:0:" + prefs.getString("movie_total_time","0:0:0")
-        ,"0:0:0:0:0:0");
+        String[] DateString = prefs.getString("movie_total_time", "0:0:0").split(":");
+        Date d1 = new Date(0, 0, 0, Integer.parseInt(DateString[0]), Integer.parseInt(DateString[1])
+                , Integer.parseInt(DateString[2]));
+        Date d2 = new Date(0, 0, 0, 0, 0, 0);
+        MovieTimeInSeconds = between_date("0:0:0:" + prefs.getString("movie_total_time", "0:0:0")
+                , "0:0:0:0:0:0");
 
 
         Calendar cal2 = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-        String[] newDateString = prefs.getString("gmt_time","0:0:0:0:0:0").split(":");
+        String[] newDateString = prefs.getString("gmt_time", "0:0:0:0:0:0").split(":");
         cal2.set(Integer.parseInt(newDateString[0]),
                 Integer.parseInt(newDateString[1]), Integer.parseInt(newDateString[2]),
                 Integer.parseInt(newDateString[3]), Integer.parseInt(newDateString[4]),
@@ -399,74 +442,27 @@ public class AndroidMobilePushApp extends Activity {
         String localTime = date.format(currentLocalTime);
 
 
-
-        TextView textV = (TextView)findViewById(R.id.textView);
+        TextView textV = (TextView) findViewById(R.id.textView);
         textV.setText(Integer.toString(between_date(localTime,
-                prefs.getString("gmt_time","0:0:0:0:0:0"))));
+                prefs.getString("gmt_time", "0:0:0:0:0:0"))));
         textV.setText("");
         textV.setText(Integer.toString(MovieTimeInSeconds));
-        final Thread timerThread = new Thread(){
-            @Override
-            public void run(){
-                try{
-                    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-                    Date currentLocalTime = cal.getTime();
-                    DateFormat date = new SimpleDateFormat("yyy:MM:dd:HH:mm:ss");
-                    date.setTimeZone(TimeZone.getTimeZone("GMT"));
-                    String localTime = date.format(currentLocalTime);
 
-                    while (!prefs.getString("movie_mode","****").equals("stopped")  ){
-                        sleep(200);
-                        int period = prefs.getInt("period",0) + between_date(localTime,
-                                prefs.getString("gmt_time","0:0:0:0:0:0"));
-                        if(updateProgress(period)){
-                            return;
-                        }
-                    }
-                }catch (InterruptedException e){
 
-                }
-            }
-        };
-        timerThread.start();
-        //progressBarFill();
-    }
-    /*private void progressBarFill(){
-        final Thread timerThread = new Thread(){
-            @Override
-            public void run(){
-                try{
-                    Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("GMT"));
-                    Date currentLocalTime = cal.getTime();
-                    DateFormat date = new SimpleDateFormat("yyy:MM:dd:HH:mm:ss");
-                    date.setTimeZone(TimeZone.getTimeZone("GMT"));
-                    String localTime = date.format(currentLocalTime);
+        /*
+{
+  "IP": "213.57.109.18",
+  "movie_mode": "playing",
+  "movie_name": "game of thrones",
+  "movie_total_time": "0:2:20",
+  "color": "White",
+  "brightness": 5,
+  "gmt_time": "2017:8:27:11:44",
+  "current_movie_time": "0:0:0",
+  "yeeLight_sittings_changed": 0,
+}
+    */
 
-                    while (!prefs.getString("movie_mode","****").equals("stopped")  ){
-                        sleep(200);
-                        int period = prefs.getInt("period",0) + between_date(localTime,
-                                prefs.getString("gmt_time","0:0:0:0:0:0"));
-                        if(updateProgress(period)){
-                            return;
-                        }
-                    }
-                }catch (InterruptedException e){
-
-                }
-            }
-        };
-        timerThread.start();
-    }*/
-
-    public boolean updateProgress(final int period){
-        mProgressBar.setMax(100);
-        if(period >= MovieTimeInSeconds){
-            mProgressBar.setProgress(mProgressBar.getMax());
-            return true;
-        }else{
-            mProgressBar.setProgress(mProgressBar.getMax()*period/MovieTimeInSeconds);
-            return false;
-        }
     }
     public void onDestroy(){
         super.onDestroy();
