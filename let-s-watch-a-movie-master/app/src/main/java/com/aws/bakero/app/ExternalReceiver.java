@@ -64,7 +64,6 @@ public class ExternalReceiver extends BroadcastReceiver {
                     int period = Integer.parseInt(current_time[0])*3600 +
                             Integer.parseInt(current_time[1])*60 + Integer.parseInt(current_time[2]);
                     editor.putInt("period",period);
-                    editor.putInt("timer",period);
                 }
                 editor.putString("IP",IP);
                 editor.putString("movie_mode",MovieMode);

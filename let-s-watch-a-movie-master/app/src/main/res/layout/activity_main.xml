@@ -97,7 +97,7 @@
                     android:layout_height="50dp"
                     android:layout_alignBottom="@+id/progressBar2"
                     android:gravity="center_horizontal"
-                    android:text="TextView" />
+                    android:text="movie time progress" />
 
                 <ProgressBar
                     android:id="@+id/progressBar2"
@@ -110,10 +110,23 @@
                 <TextView
                     android:id="@+id/textView2"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="30dp"
                     android:layout_below="@+id/progressBar2"
                     android:gravity="center_horizontal"
                     android:text="TextView" />
+                <RelativeLayout
+                    android:id="@+id/loadingPanel"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_below="@+id/textView2"
+                    android:gravity="center"
+                    android:visibility="gone">
+
+                    <ProgressBar
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:indeterminate="true" />
+                </RelativeLayout>
 
             </RelativeLayout>
             <LinearLayout
