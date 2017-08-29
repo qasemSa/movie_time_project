@@ -66,6 +66,7 @@ public class ExternalReceiver extends BroadcastReceiver {
                     editor.putInt("period",period);
                 }
                 editor.putString("IP",IP);
+                editor.putString("prev_movie_mode",prefs.getString("movie_mode","stopped"));
                 editor.putString("movie_mode",MovieMode);
                 editor.putString("movie_name",MovieName);
                 editor.putString("movie_total_time",obj.getString("movie_total_time"));
@@ -139,7 +140,7 @@ public class ExternalReceiver extends BroadcastReceiver {
             }
         }
 
-        if(prefs.getBoolean("isOpen", false)){
+        if(prefs.getBoolean("isOpen", false) ){
             AndroidMobilePushApp.getIns().updateTheTextView();
         }
     }
