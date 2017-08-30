@@ -59,7 +59,7 @@
             android:id="@+id/movie_name"
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:text="movie name: game of thrones"
+            android:text="movie name:"
             android:textSize="18sp"
             android:gravity="center_vertical"/>
 
@@ -67,7 +67,7 @@
             android:id="@+id/movie_mode"
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:text="movie mode: playing"
+            android:text="movie mode:"
             android:textSize="18sp"
             android:gravity="center_vertical"/>
 
@@ -76,7 +76,7 @@
             android:id="@+id/movie_total_time"
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:text="movie total time: 01:20:00"
+            android:text="movie total time:"
             android:textSize="18sp"
             android:gravity="center_vertical"/>
 

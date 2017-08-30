@@ -77,6 +77,33 @@ public class AndroidMobilePushApp extends Activity {
             }
         });
     }
+    public void EnableButtons(){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
+                Button StopButton = (Button)findViewById(R.id.buttonStop);
+                Button StartButton = (Button)findViewById(R.id.buttonStart);
+                StopButton.setEnabled(false);
+                StartButton.setEnabled(true);
+                PlayButton.setEnabled(false);
+            }
+        });
+    }
+    public void DisableButtons(){
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
+                Button StopButton = (Button)findViewById(R.id.buttonStop);
+                Button StartButton = (Button)findViewById(R.id.buttonStart);
+                StopButton.setEnabled(false);
+                StartButton.setEnabled(false);
+                PlayButton.setEnabled(false);
+            }
+        });
+    }
+
     private void initialization(){
         if(prefs.getString("movie_mode","****").equals("stopped")){
             RadioGroup colorRG = (RadioGroup) findViewById(R.id.colorRG);
@@ -140,7 +167,11 @@ public class AndroidMobilePushApp extends Activity {
         Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
         Button StopButton = (Button)findViewById(R.id.buttonStop);
         Button StartButton = (Button)findViewById(R.id.buttonStart);
-        if(movie_mode.equals("playing")){
+        if(!prefs.getString("IP","0").equals(prefs.getString("myIP","0"))){
+            StopButton.setEnabled(false);
+            StartButton.setEnabled(false);
+            PlayButton.setEnabled(false);
+        }else if(movie_mode.equals("playing")){
             PlayButton.setBackgroundColor(0xffffbb33);
             PlayButton.setText("Pause");
             StopButton.setEnabled(true);
@@ -157,10 +188,20 @@ public class AndroidMobilePushApp extends Activity {
             StartButton.setEnabled(true);
             PlayButton.setEnabled(false);
         }
-        if(!prefs.getString("prev_movie_mode","stopped").equals("playing") && prefs.getString("movie_mode","stpeed").equals("playing")) {
+        if( !prefs.getString("movie_mode","stopped").equals("paused")) {
             new Thread(new Runnable() {
                 public void run() {
-                    do {//!prefs.getString("movie_mode","****").equals("stopped")
+                    if(prefs.getString("movie_mode", "****").equals("stopped")){
+                        mProgressBar.setProgress(0);
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                periodTextView.setText("0%");
+                            }
+                        });
+                    }
+                    while ((mProgressBar.getProgress() != mProgressBar.getMax()) &&
+                            prefs.getString("movie_mode", "****").equals("playing")){//!prefs.getString("movie_mode","****").equals("stopped")
                         int x = doSomeWork();
                         mProgressBar.setProgress(x);
                         runOnUiThread(new Runnable() {
@@ -170,8 +211,7 @@ public class AndroidMobilePushApp extends Activity {
                                         mProgressBar.getProgress() * 100 / mProgressBar.getMax()) + "%");
                             }
                         });
-                    } while ((mProgressBar.getProgress() != mProgressBar.getMax()) &&
-                            prefs.getString("movie_mode", "****").equals("playing"));
+                    };
 
                 }
                 private int doSomeWork() {
@@ -332,7 +372,6 @@ public class AndroidMobilePushApp extends Activity {
         registerPhone();
         ins = this;
 
-
         final ImageButton imgBtn = (ImageButton) findViewById(R.id.imageButton);
         imgBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -371,6 +410,13 @@ public class AndroidMobilePushApp extends Activity {
         mProgressBar.setScaleY(4f);
         mProgressBar.setMax(200);
         periodTextView =(TextView) findViewById(R.id.textView2);
+        ProgressBar PBar = (ProgressBar) findViewById(R.id.progressBar2);
+        PBar.setMax(200);
+        if(MovieTimeInSeconds>0) {
+            PBar.setProgress((prefs.getInt("period", 0) * PBar.getMax()) / MovieTimeInSeconds);
+            periodTextView.setText(Integer.toString(
+                    mProgressBar.getProgress() * 100 / mProgressBar.getMax()) + "%");
+        }
         final Button PlayButton = (Button) findViewById(R.id.buttonPlayPause);
         final Button StartButton = (Button) findViewById(R.id.buttonStart);
         final Button StopButton = (Button) findViewById(R.id.buttonStop);
@@ -409,6 +455,13 @@ public class AndroidMobilePushApp extends Activity {
             }
         });
         findViewById(R.id.loadingPanel).setVisibility(View.GONE);
+
+        String RasPiIP = prefs.getString("IP","****");
+        if(RasPiIP == "****"){
+            PlayButton.setEnabled(false);
+            StartButton.setEnabled(false);
+            StopButton.setEnabled(false);
+        }
         editor.putBoolean("isOpen", true);
         editor.commit();
     }

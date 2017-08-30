@@ -16,6 +16,7 @@ import android.provider.ContactsContract;
 import android.support.v4.app.NotificationCompat;
 import android.text.format.Formatter;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.TextView;
 
 import org.json.JSONObject;
@@ -57,6 +58,7 @@ public class ExternalReceiver extends BroadcastReceiver {
                 MovieName = obj.getString("movie_name");
                 MovieMode = obj.getString("movie_mode");
                 if(MovieMode.equals("stopped")){
+                    editor.putString("current_movie_time","0:0:0");
                     editor.putInt("period",0);
                     editor.putInt("timer",0);
                 }else{
@@ -64,6 +66,7 @@ public class ExternalReceiver extends BroadcastReceiver {
                     int period = Integer.parseInt(current_time[0])*3600 +
                             Integer.parseInt(current_time[1])*60 + Integer.parseInt(current_time[2]);
                     editor.putInt("period",period);
+                    editor.putString("current_movie_time",obj.getString("current_movie_time"));
                 }
                 editor.putString("IP",IP);
                 editor.putString("prev_movie_mode",prefs.getString("movie_mode","stopped"));
@@ -73,12 +76,15 @@ public class ExternalReceiver extends BroadcastReceiver {
                 editor.putString("color",obj.getString("color"));
                 editor.putInt("brightness",obj.getInt("brightness"));
                 editor.putString("gmt_time",obj.getString("gmt_time"));
-                editor.putString("current_movie_time",obj.getString("current_movie_time"));
                 editor.commit();
             }else{
-                IP = prefs.getString("IP","****");
+                IP = obj.getString("IP");
                 MovieName = prefs.getString("movie_name","****");
                 MovieMode = prefs.getString("movie_mode","****");
+                editor.putString("IP",IP);
+                editor.putString("color",obj.getString("color"));
+                editor.putInt("brightness",obj.getInt("brightness"));
+                editor.commit();
             }
         } catch (Throwable t) {
             return;
@@ -139,7 +145,11 @@ public class ExternalReceiver extends BroadcastReceiver {
                 }
             }
         }
-
+        if(prefs.getString("IP","**").equals(prefs.getString("myIP","0"))) {
+            AndroidMobilePushApp.getIns().EnableButtons();
+        }else{
+            AndroidMobilePushApp.getIns().DisableButtons();
+        }
         if(prefs.getBoolean("isOpen", false) ){
             AndroidMobilePushApp.getIns().updateTheTextView();
         }
