@@ -38,7 +38,6 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.iot.client.AWSIotException;
 import com.amazonaws.services.iot.client.AWSIotMqttClient;
-import com.amazonaws.services.iot.client.AWSIotTopic;
 import com.amazonaws.services.sns.AmazonSNSClient;
 import com.amazonaws.services.sns.model.CreatePlatformEndpointRequest;
 import com.amazonaws.services.sns.model.CreatePlatformEndpointResult;
@@ -48,7 +47,11 @@ import com.google.android.gms.gcm.GoogleCloudMessaging;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -81,12 +84,30 @@ public class AndroidMobilePushApp extends Activity {
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
+                String movie_mode = prefs.getString("movie_mode","****");
                 Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
                 Button StopButton = (Button)findViewById(R.id.buttonStop);
                 Button StartButton = (Button)findViewById(R.id.buttonStart);
-                StopButton.setEnabled(false);
-                StartButton.setEnabled(true);
-                PlayButton.setEnabled(false);
+                ImageButton yeelightBtn = (ImageButton)findViewById(R.id.imageButton);
+                if(movie_mode.equals("playing")){
+                    PlayButton.setBackgroundColor(0xffffbb33);
+                    PlayButton.setText("Pause");
+                    StopButton.setEnabled(true);
+                    StartButton.setEnabled(false);
+                    PlayButton.setEnabled(true);
+                }else if (movie_mode.equals("paused")){
+                    PlayButton.setBackgroundColor(0xff99cc00);
+                    PlayButton.setText("Play");
+                    StopButton.setEnabled(true);
+                    StartButton.setEnabled(false);
+                    PlayButton.setEnabled(true);
+                }else if(movie_mode.equals("stopped")){
+                    StopButton.setEnabled(false);
+                    StartButton.setEnabled(true);
+                    PlayButton.setEnabled(false);
+                }
+                yeelightBtn.setEnabled(true);
+                findViewById(R.id.loadingPanel).setVisibility(View.GONE);
             }
         });
     }
@@ -97,21 +118,24 @@ public class AndroidMobilePushApp extends Activity {
                 Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
                 Button StopButton = (Button)findViewById(R.id.buttonStop);
                 Button StartButton = (Button)findViewById(R.id.buttonStart);
+                ImageButton yeelightBtn = (ImageButton)findViewById(R.id.imageButton);
                 StopButton.setEnabled(false);
                 StartButton.setEnabled(false);
                 PlayButton.setEnabled(false);
+                yeelightBtn.setEnabled(false);
+
+                findViewById(R.id.loadingPanel).setVisibility(View.VISIBLE);
             }
         });
     }
 
     private void initialization(){
+        if(prefs.getBoolean("init",false)){
+            EnableButtons();
+            editor.putBoolean("init",false);
+            editor.commit();
+        }
         if(prefs.getString("movie_mode","****").equals("stopped")){
-            RadioGroup colorRG = (RadioGroup) findViewById(R.id.colorRG);
-            RadioGroup brightnessRG = (RadioGroup) findViewById(R.id.brightnessRG);
-            for (int i = 1; i < colorRG.getChildCount(); i++) {
-                colorRG.getChildAt(i).setEnabled(false);
-                brightnessRG.getChildAt(i).setEnabled(false);
-            }
             ProgressBar PBar = (ProgressBar) findViewById(R.id.progressBar2);
             PBar.setVisibility(View.INVISIBLE);
             TextView TBar = (TextView) findViewById(R.id.textView2);
@@ -156,38 +180,19 @@ public class AndroidMobilePushApp extends Activity {
                     prefs.getString("movie_total_time","****"));
             colorRG.check(SittingsMap.get(prefs.getString("color","White")));
             brightnessRG.check(SittingsMap.get(Integer.toString(prefs.getInt("brightness",0))));
-            String[] DateString = prefs.getString("gmt_time","0:0:0").split(":");
-            Date d1 = new Date(0,0,0,Integer.parseInt(DateString[0]),Integer.parseInt(DateString[1])
-                    ,Integer.parseInt(DateString[2]));
-            Date d2 = new Date(0,0,0,0,0,0);
         }
         MovieTimeInSeconds = between_date("0:0:0:" + prefs.getString("movie_total_time","0:0:0")
                 ,"0:0:0:0:0:0");
-        String movie_mode = prefs.getString("movie_mode","****");
-        Button PlayButton = (Button)findViewById(R.id.buttonPlayPause);
-        Button StopButton = (Button)findViewById(R.id.buttonStop);
-        Button StartButton = (Button)findViewById(R.id.buttonStart);
-        if(!prefs.getString("IP","0").equals(prefs.getString("myIP","0"))){
-            StopButton.setEnabled(false);
-            StartButton.setEnabled(false);
-            PlayButton.setEnabled(false);
-        }else if(movie_mode.equals("playing")){
-            PlayButton.setBackgroundColor(0xffffbb33);
-            PlayButton.setText("Pause");
-            StopButton.setEnabled(true);
-            StartButton.setEnabled(false);
-            PlayButton.setEnabled(true);
-        }else if (movie_mode.equals("paused")){
-            PlayButton.setBackgroundColor(0xff99cc00);
-            PlayButton.setText("Play");
-            StopButton.setEnabled(true);
-            StartButton.setEnabled(false);
-            PlayButton.setEnabled(true);
-        }else if(movie_mode.equals("stopped")){
-            StopButton.setEnabled(false);
-            StartButton.setEnabled(true);
-            PlayButton.setEnabled(false);
-        }
+        EnableButtons();
+        /*if(prefs.getString("movie_mode","stopped").equals("paused")) {
+            ProgressBar PBar = (ProgressBar) findViewById(R.id.progressBar2);
+            if(MovieTimeInSeconds>0) {
+                PBar.setProgress((prefs.getInt("period", 0) * PBar.getMax()) / MovieTimeInSeconds);
+                periodTextView.setText(Integer.toString(
+                        mProgressBar.getProgress() * 100 / mProgressBar.getMax()) + "%");
+            }
+        }*/
+
         if( !prefs.getString("movie_mode","stopped").equals("paused")) {
             new Thread(new Runnable() {
                 public void run() {
@@ -262,6 +267,7 @@ public class AndroidMobilePushApp extends Activity {
     }
 
     private void register(final GoogleCloudMessaging gcm) {
+
         new AsyncTask(){
             protected Object doInBackground(final Object... params) {
                 String token;
@@ -287,9 +293,50 @@ public class AndroidMobilePushApp extends Activity {
         }
     }
 
+    private void calcIP(){
+        editor.putString("myIP","0");
+        editor.commit();
+        new AsyncTask(){
+            protected Object doInBackground(final Object... params) {
+                String strl = "aaa";
+                try {
+                    SharedPreferences prefs = getSharedPreferences("myPrefs",
+                            Context.MODE_PRIVATE);
+                    SharedPreferences.Editor editor = prefs.edit();
+                    URL url = new URL("http://checkip.amazonaws.com");
+                    BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()));
+                    strl = br.readLine();
+                    editor.putString("myIP",strl);
+                    br.close();
+                    editor.commit();
+                } catch (MalformedURLException e) {
+                    editor.putString("myIP","*");
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    editor.putString("myIP","*");
+                    e.printStackTrace();
+                }finally {
+                    editor.putString("myIP","*");
+                }
+                return true;
+            }
+        }.execute(null, null, null);
+    }
+
     private void send_status_to_pi(final String color,final Integer brightness,final String movie_mode,final String change){
+        DisableButtons();
+        if(!change.equals("update")){
+            calcIP();
+        }
         new AsyncTask(){
             protected Object doInBackground(final Object ... params) {
+                if(!change.equals("update")) {
+                    while (prefs.getString("myIP", "0").equals("0")) ;
+                    if (!prefs.getString("IP", "**").equals(prefs.getString("myIP", "0"))) {
+                        AndroidMobilePushApp.getIns().EnableButtons();
+                        return true;
+                    }
+                }
                 String clientEndpoint = "a18cbjggcfl7xb.iot.us-east-1.amazonaws.com";       // replace <prefix> and <region> with your own
                 String clientId = "qasem";                              // replace with your own client ID. Use unique client IDs for concurrent connections.
                 AWSIotMqttClient client = new AWSIotMqttClient(clientEndpoint, clientId,"AKIAIPCCPQSVC6D7B4GQ",
@@ -298,22 +345,26 @@ public class AndroidMobilePushApp extends Activity {
                 JSONObject state = new JSONObject();
                 JSONObject reported = new JSONObject();
                 try {
-                    reported.put("color",color);
-                    reported.put("brightness",brightness);
-                    reported.put("movie_mode",movie_mode);
+                    if (change.equals("yeeLight")){
+                        reported.put("color",color);
+                        reported.put("brightness",brightness);
+                    }else if(change.equals("movie")) {
+                        reported.put("movie_mode", movie_mode);
+                    }
+                    reported.put("change",change);
                     state.put("reported",reported);
-                    state.put("change",change);
                     msg.put("state",state);
-                } catch (JSONException e) {
+                } catch (Exception e) {
                     e.printStackTrace();
+                    AndroidMobilePushApp.getIns().EnableButtons();
                 }
                 try {
                     client.connect();
-                    AWSIotTopic topic = new AWSIotTopic("$aws/things/RasPi3/shadow/update");
                     client.publish("$aws/things/RasPi3/shadow/update", msg.toString());
                     client.disconnect();
                 } catch (AWSIotException e) {
                     e.printStackTrace();
+                    AndroidMobilePushApp.getIns().EnableButtons();
                 }
                 return true;
             }
@@ -368,9 +419,9 @@ public class AndroidMobilePushApp extends Activity {
         prefs = getSharedPreferences("myPrefs", Context.MODE_PRIVATE);
         editor = prefs.edit();
         setContentView(R.layout.activity_main);
-
         registerPhone();
         ins = this;
+
 
         final ImageButton imgBtn = (ImageButton) findViewById(R.id.imageButton);
         imgBtn.setOnClickListener(new View.OnClickListener() {
@@ -405,6 +456,7 @@ public class AndroidMobilePushApp extends Activity {
                 imgBtn.animate().rotation(deg).setInterpolator(new AccelerateDecelerateInterpolator());
             }
         });
+        //update_status();
         initialization();
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar2);
         mProgressBar.setScaleY(4f);
@@ -425,9 +477,9 @@ public class AndroidMobilePushApp extends Activity {
             public void onClick(View view) {
                 findViewById(R.id.loadingPanel).setVisibility(View.VISIBLE);
                 if (PlayButton.getText().equals("Play")) {
-                    send_status_to_pi("", -1, "play", "movie");
+                    send_status_to_pi("", -1, "playing", "movie");
                 } else {
-                    send_status_to_pi("", -1, "pause", "movie");
+                    send_status_to_pi("", -1, "paused", "movie");
                 }
                 PlayButton.setEnabled(false);
                 StartButton.setEnabled(false);
@@ -438,7 +490,7 @@ public class AndroidMobilePushApp extends Activity {
             @Override
             public void onClick(View view) {
                 findViewById(R.id.loadingPanel).setVisibility(View.VISIBLE);
-                send_status_to_pi("", -1, "start", "movie");
+                send_status_to_pi("", -1, "playing", "movie");
                 PlayButton.setEnabled(false);
                 StartButton.setEnabled(false);
                 StopButton.setEnabled(false);
@@ -448,7 +500,7 @@ public class AndroidMobilePushApp extends Activity {
             @Override
             public void onClick(View view) {
                 findViewById(R.id.loadingPanel).setVisibility(View.VISIBLE);
-                send_status_to_pi("", -1, "stop", "movie");
+                send_status_to_pi("", -1, "stopped", "movie");
                 PlayButton.setEnabled(false);
                 StartButton.setEnabled(false);
                 StopButton.setEnabled(false);
@@ -456,14 +508,9 @@ public class AndroidMobilePushApp extends Activity {
         });
         findViewById(R.id.loadingPanel).setVisibility(View.GONE);
 
-        String RasPiIP = prefs.getString("IP","****");
-        if(RasPiIP == "****"){
-            PlayButton.setEnabled(false);
-            StartButton.setEnabled(false);
-            StopButton.setEnabled(false);
-        }
         editor.putBoolean("isOpen", true);
         editor.commit();
+        send_status_to_pi("",-1,"","update");
     }
     public void onDestroy(){
         super.onDestroy();

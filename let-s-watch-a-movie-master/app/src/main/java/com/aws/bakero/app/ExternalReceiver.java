@@ -8,16 +8,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioManager;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.provider.ContactsContract;
 import android.support.v4.app.NotificationCompat;
-import android.text.format.Formatter;
-import android.util.Log;
-import android.widget.Button;
-import android.widget.TextView;
 
 import org.json.JSONObject;
 
@@ -26,69 +19,70 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Date;
-
-import javax.xml.datatype.Duration;
 
 import static android.os.Build.*;
 
 public class ExternalReceiver extends BroadcastReceiver {
     public void onReceive(final Context context, Intent intent) {
-        final NotificationManager mNotificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        Bundle extras = intent.getExtras();
-        String state = extras.getString("default");
-        if (state.contains("EndpointArn")){
-            return;
-        }
-
-        SharedPreferences prefs = context.getSharedPreferences("myPrefs",
-                Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putString("myIP","0");
-        int yeeLightSittingsChanged = 0;
+        final NotificationManager mNotificationManager;
+        Bundle extras;
+        String state;
+        SharedPreferences prefs;
+        SharedPreferences.Editor editor;
         JSONObject obj;
         String IP;
         String MovieName;
         String MovieMode;
+        int yeeLightSittingsChanged = 0;
         try {
-            obj = new JSONObject(state);
-            yeeLightSittingsChanged = obj.getInt("yeeLight_sittings_changed");
-            if(yeeLightSittingsChanged == 0){
-                IP = obj.getString("IP");
-                MovieName = obj.getString("movie_name");
-                MovieMode = obj.getString("movie_mode");
-                if(MovieMode.equals("stopped")){
-                    editor.putString("current_movie_time","0:0:0");
-                    editor.putInt("period",0);
-                    editor.putInt("timer",0);
-                }else{
-                    String[] current_time = prefs.getString("current_movie_time","0:0:0").split(":");
-                    int period = Integer.parseInt(current_time[0])*3600 +
-                            Integer.parseInt(current_time[1])*60 + Integer.parseInt(current_time[2]);
-                    editor.putInt("period",period);
-                    editor.putString("current_movie_time",obj.getString("current_movie_time"));
-                }
-                editor.putString("IP",IP);
-                editor.putString("prev_movie_mode",prefs.getString("movie_mode","stopped"));
-                editor.putString("movie_mode",MovieMode);
-                editor.putString("movie_name",MovieName);
-                editor.putString("movie_total_time",obj.getString("movie_total_time"));
-                editor.putString("color",obj.getString("color"));
-                editor.putInt("brightness",obj.getInt("brightness"));
-                editor.putString("gmt_time",obj.getString("gmt_time"));
-                editor.commit();
-            }else{
-                IP = obj.getString("IP");
-                MovieName = prefs.getString("movie_name","****");
-                MovieMode = prefs.getString("movie_mode","****");
-                editor.putString("IP",IP);
-                editor.putString("color",obj.getString("color"));
-                editor.putInt("brightness",obj.getInt("brightness"));
-                editor.commit();
+            mNotificationManager =
+                    (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            extras = intent.getExtras();
+            state = extras.getString("default");
+            if (state.contains("EndpointArn")){
+                return;
             }
+            prefs = context.getSharedPreferences("myPrefs",
+                    Context.MODE_PRIVATE);
+            editor = prefs.edit();
+            editor.putString("myIP","0");
+            obj = new JSONObject(state);
+            IP = prefs.getString("IP","132.68.60.198");
+            MovieName =  prefs.getString("movie_name","****");
+            MovieMode = prefs.getString("movie_mode","stopped");
+        }catch (Exception e){
+            return;
+        }
+
+        try{IP = obj.getString("IP");}catch (Exception e){}
+        try{MovieName = obj.getString("movie_name");}catch (Exception e){}
+        try{MovieMode = obj.getString("movie_mode");}catch (Exception e){}
+        try{editor.putString("current_movie_time",obj.getString("current_movie_time"));
+        }catch (Exception e){}
+        try{editor.putString("movie_total_time",obj.getString("movie_total_time"));
+        }catch (Exception e){}
+        try{editor.putString("color",obj.getString("color"));}catch (Exception e){}
+        try{editor.putInt("brightness",obj.getInt("brightness"));}catch (Exception e){}
+        try{editor.putString("gmt_time",obj.getString("gmt_time"));}catch (Exception e){}
+        try{yeeLightSittingsChanged = obj.getInt("yeeLight_sittings_changed");}catch (Exception e){}
+        editor.commit();
+        try {
+            if(MovieMode.equals("stopped")){
+                editor.putString("current_movie_time","0:0:0");
+                editor.putInt("period",0);
+            }else{
+                String[] current_time = prefs.getString("current_movie_time","0:0:0").split(":");
+                int period = Integer.parseInt(current_time[0])*3600 +
+                        Integer.parseInt(current_time[1])*60 + Integer.parseInt(current_time[2]);
+                editor.putInt("period",period);
+            }
+            editor.putString("IP",IP);
+            editor.putString("movie_mode",MovieMode);
+            editor.putString("movie_name",MovieName);
         } catch (Throwable t) {
             return;
         }
+        editor.commit();
 
         new AsyncTask(){
             protected Object doInBackground(final Object... params) {
@@ -120,38 +114,37 @@ public class ExternalReceiver extends BroadcastReceiver {
 
 
         String MyIP = prefs.getString("myIP","****");
-
-
-        if ( (IP.equals(MyIP) || MovieMode.equals("stopped") || MovieMode.equals("playing"))
-                && yeeLightSittingsChanged == 0){
-            final PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, new Intent(context,AndroidMobilePushApp.class), Notification.DEFAULT_LIGHTS | Notification.FLAG_AUTO_CANCEL);
-            final Notification notification = new NotificationCompat.Builder(context).setSmallIcon(R.mipmap.ic_launcher)
-                    .setContentTitle(MovieName+" is " + MovieMode)
-                    .setContentText("")
-                    .setContentIntent(pendingIntent)
-                    .setAutoCancel(true)
-                    .getNotification();
-            mNotificationManager.notify(R.string.notification_number, notification);
-        }
-        if ( IP.equals(MyIP)){
-            AudioManager mgr = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
-            if(MovieMode.equals("stopped")){
-                mgr.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
-            }else{
-                if(VERSION.SDK_INT <= 22){
-                    mgr.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
+        try{
+            if ( (IP.equals(MyIP) || MovieMode.equals("stopped") || MovieMode.equals("playing"))
+                    && yeeLightSittingsChanged == 0) {
+                final PendingIntent pendingIntent;
+                final Notification notification;
+                pendingIntent = PendingIntent.getActivity(context, 0, new Intent(context, AndroidMobilePushApp.class), Notification.DEFAULT_LIGHTS | Notification.FLAG_AUTO_CANCEL);
+                notification = new NotificationCompat.Builder(context).setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle(MovieName + " is " + MovieMode)
+                        .setContentText("")
+                        .setContentIntent(pendingIntent)
+                        .setAutoCancel(true)
+                        .getNotification();
+                mNotificationManager.notify(R.string.notification_number, notification);
+            }
+            if ( IP.equals(MyIP)){
+                AudioManager mgr = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+                if(!MovieMode.equals("playing")){
+                    mgr.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
                 }else{
-                    mgr.setRingerMode(AudioManager.RINGER_MODE_SILENT);
+                    if(VERSION.SDK_INT <= 22){
+                        mgr.setRingerMode(AudioManager.RINGER_MODE_VIBRATE);
+                    }else{
+                        mgr.setRingerMode(AudioManager.RINGER_MODE_SILENT);
+                    }
                 }
             }
-        }
-        if(prefs.getString("IP","**").equals(prefs.getString("myIP","0"))) {
-            AndroidMobilePushApp.getIns().EnableButtons();
-        }else{
-            AndroidMobilePushApp.getIns().DisableButtons();
-        }
-        if(prefs.getBoolean("isOpen", false) ){
-            AndroidMobilePushApp.getIns().updateTheTextView();
+            if(prefs.getBoolean("isOpen", false)){
+                AndroidMobilePushApp.getIns().updateTheTextView();
+            }
+        }catch (Exception e){
+            return;
         }
     }
 }
