@@ -98,6 +98,7 @@
                     android:layout_height="50dp"
                     android:layout_alignBottom="@+id/progressBar2"
                     android:gravity="center_horizontal"
+                    android:visibility="invisible"
                     android:text="movie time progress" />
 
                 <ProgressBar
@@ -106,6 +107,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_centerInParent="true"
+                    android:visibility="invisible"
                     android:max="100" />
 
                 <TextView
@@ -114,6 +116,7 @@
                     android:layout_height="30dp"
                     android:layout_below="@+id/progressBar2"
                     android:gravity="center_horizontal"
+                    android:visibility="invisible"
                     android:text="0%" />
                 <RelativeLayout
                     android:id="@+id/loadingPanel"

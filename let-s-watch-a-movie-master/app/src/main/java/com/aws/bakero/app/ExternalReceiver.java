@@ -33,7 +33,7 @@ public class ExternalReceiver extends BroadcastReceiver {
         String IP;
         String MovieName;
         String MovieMode;
-        int yeeLightSittingsChanged = 0;
+
         try {
             mNotificationManager =
                     (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -47,6 +47,7 @@ public class ExternalReceiver extends BroadcastReceiver {
             editor = prefs.edit();
             editor.putString("myIP","0");
             obj = new JSONObject(state);
+            editor.putInt("yeeLight_sittings_changed",0);
             IP = prefs.getString("IP","132.68.60.198");
             MovieName =  prefs.getString("movie_name","****");
             MovieMode = prefs.getString("movie_mode","stopped");
@@ -64,7 +65,7 @@ public class ExternalReceiver extends BroadcastReceiver {
         try{editor.putString("color",obj.getString("color"));}catch (Exception e){}
         try{editor.putInt("brightness",obj.getInt("brightness"));}catch (Exception e){}
         try{editor.putString("gmt_time",obj.getString("gmt_time"));}catch (Exception e){}
-        try{yeeLightSittingsChanged = obj.getInt("yeeLight_sittings_changed");}catch (Exception e){}
+        try{editor.putInt("yeeLight_sittings_changed",obj.getInt("yeeLight_sittings_changed"));}catch (Exception e){}
         editor.commit();
         try {
             if(MovieMode.equals("stopped")){
@@ -116,7 +117,7 @@ public class ExternalReceiver extends BroadcastReceiver {
         String MyIP = prefs.getString("myIP","****");
         try{
             if ( (IP.equals(MyIP) || MovieMode.equals("stopped") || MovieMode.equals("playing"))
-                    && yeeLightSittingsChanged == 0) {
+                    && prefs.getInt("yeeLight_sittings_changed",0) == 0) {
                 final PendingIntent pendingIntent;
                 final Notification notification;
                 pendingIntent = PendingIntent.getActivity(context, 0, new Intent(context, AndroidMobilePushApp.class), Notification.DEFAULT_LIGHTS | Notification.FLAG_AUTO_CANCEL);

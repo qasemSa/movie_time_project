@@ -66,6 +66,7 @@ public class AndroidMobilePushApp extends Activity {
     private SharedPreferences prefs ;
     private SharedPreferences.Editor editor;
     private static AndroidMobilePushApp ins;
+    private static boolean yeeLight_changed;
     private int MovieTimeInSeconds;
     private ProgressBar mProgressBar;
     Map<String, Integer> SittingsMap = new HashMap<String, Integer>();
@@ -74,13 +75,14 @@ public class AndroidMobilePushApp extends Activity {
         return ins;
     }
     public void updateTheTextView() {
+        AndroidMobilePushApp.getIns().EnableButtons(true);
         AndroidMobilePushApp.this.runOnUiThread(new Runnable() {
             public void run() {
                 initialization();
             }
         });
     }
-    public void EnableButtons(){
+    public void EnableButtons(final Boolean same_ip){
         runOnUiThread(new Runnable() {
             @Override
             public void run() {
@@ -106,6 +108,13 @@ public class AndroidMobilePushApp extends Activity {
                     StartButton.setEnabled(true);
                     PlayButton.setEnabled(false);
                 }
+                if(!same_ip){
+                    Toast.makeText(getApplicationContext(), "Access denied, Connect to home WiFi!", Toast.LENGTH_SHORT).show();
+                }
+                if(yeeLight_changed){
+                    Toast.makeText(getApplicationContext(), "color and brightness of YeeLight updated", Toast.LENGTH_SHORT).show();
+                    yeeLight_changed = false;
+                }
                 yeelightBtn.setEnabled(true);
                 findViewById(R.id.loadingPanel).setVisibility(View.GONE);
             }
@@ -130,11 +139,6 @@ public class AndroidMobilePushApp extends Activity {
     }
 
     private void initialization(){
-        if(prefs.getBoolean("init",false)){
-            EnableButtons();
-            editor.putBoolean("init",false);
-            editor.commit();
-        }
         if(prefs.getString("movie_mode","****").equals("stopped")){
             ProgressBar PBar = (ProgressBar) findViewById(R.id.progressBar2);
             PBar.setVisibility(View.INVISIBLE);
@@ -173,7 +177,7 @@ public class AndroidMobilePushApp extends Activity {
                 }
             }
             MovieDetails.setVisibility(View.VISIBLE);
-
+            yeeLight_changed = false;
             MovieModeText.setText("movie mode: "+ prefs.getString("movie_mode","****"));
             MovieNameText.setText("movie name: "+ prefs.getString("movie_name","****"));
             MovieTotalTime.setText("movie total time: "+
@@ -183,15 +187,6 @@ public class AndroidMobilePushApp extends Activity {
         }
         MovieTimeInSeconds = between_date("0:0:0:" + prefs.getString("movie_total_time","0:0:0")
                 ,"0:0:0:0:0:0");
-        EnableButtons();
-        /*if(prefs.getString("movie_mode","stopped").equals("paused")) {
-            ProgressBar PBar = (ProgressBar) findViewById(R.id.progressBar2);
-            if(MovieTimeInSeconds>0) {
-                PBar.setProgress((prefs.getInt("period", 0) * PBar.getMax()) / MovieTimeInSeconds);
-                periodTextView.setText(Integer.toString(
-                        mProgressBar.getProgress() * 100 / mProgressBar.getMax()) + "%");
-            }
-        }*/
 
         if( !prefs.getString("movie_mode","stopped").equals("paused")) {
             new Thread(new Runnable() {
@@ -325,15 +320,17 @@ public class AndroidMobilePushApp extends Activity {
 
     private void send_status_to_pi(final String color,final Integer brightness,final String movie_mode,final String change){
         DisableButtons();
-        if(!change.equals("update")){
+        if(!change.equals("update") &&
+                !(change.equals("yeeLight") && prefs.getString("movie_mode", "****").equals("stopped"))){
             calcIP();
         }
         new AsyncTask(){
             protected Object doInBackground(final Object ... params) {
-                if(!change.equals("update")) {
+                if(!change.equals("update") &&
+                        !(change.equals("yeeLight") && prefs.getString("movie_mode", "****").equals("stopped"))) {
                     while (prefs.getString("myIP", "0").equals("0")) ;
                     if (!prefs.getString("IP", "**").equals(prefs.getString("myIP", "0"))) {
-                        AndroidMobilePushApp.getIns().EnableButtons();
+                        AndroidMobilePushApp.getIns().EnableButtons(false);
                         return true;
                     }
                 }
@@ -346,6 +343,7 @@ public class AndroidMobilePushApp extends Activity {
                 JSONObject reported = new JSONObject();
                 try {
                     if (change.equals("yeeLight")){
+                        yeeLight_changed = true;
                         reported.put("color",color);
                         reported.put("brightness",brightness);
                     }else if(change.equals("movie")) {
@@ -355,16 +353,19 @@ public class AndroidMobilePushApp extends Activity {
                     state.put("reported",reported);
                     msg.put("state",state);
                 } catch (Exception e) {
+                    yeeLight_changed = false;
                     e.printStackTrace();
-                    AndroidMobilePushApp.getIns().EnableButtons();
+                    AndroidMobilePushApp.getIns().EnableButtons(false);
+                    return true;
                 }
                 try {
                     client.connect();
                     client.publish("$aws/things/RasPi3/shadow/update", msg.toString());
                     client.disconnect();
-                } catch (AWSIotException e) {
+                } catch (Exception e) {
+                    yeeLight_changed = false;
                     e.printStackTrace();
-                    AndroidMobilePushApp.getIns().EnableButtons();
+                    AndroidMobilePushApp.getIns().EnableButtons(false);
                 }
                 return true;
             }
@@ -445,7 +446,6 @@ public class AndroidMobilePushApp extends Activity {
                     Integer brightness = Integer.valueOf((String) (brightnessButton.getText()));
                     if (colorRG.getChildAt(1).isEnabled()) {
                         send_status_to_pi(color, brightness, "", "yeeLight");
-                        Toast.makeText(getApplicationContext(), "color and brightness of YeeLight updated", Toast.LENGTH_SHORT).show();
                     }
                 } else {
                     deg -= 90F;
@@ -457,7 +457,8 @@ public class AndroidMobilePushApp extends Activity {
             }
         });
         //update_status();
-        initialization();
+        //initialization();
+        yeeLight_changed = false;
         mProgressBar = (ProgressBar) findViewById(R.id.progressBar2);
         mProgressBar.setScaleY(4f);
         mProgressBar.setMax(200);
@@ -465,6 +466,7 @@ public class AndroidMobilePushApp extends Activity {
         ProgressBar PBar = (ProgressBar) findViewById(R.id.progressBar2);
         PBar.setMax(200);
         if(MovieTimeInSeconds>0) {
+            PBar.setProgress((prefs.getInt("period", 0) * PBar.getMax()) / MovieTimeInSeconds);
             PBar.setProgress((prefs.getInt("period", 0) * PBar.getMax()) / MovieTimeInSeconds);
             periodTextView.setText(Integer.toString(
                     mProgressBar.getProgress() * 100 / mProgressBar.getMax()) + "%");
