@@ -56,8 +56,10 @@ public class ExternalReceiver extends BroadcastReceiver {
         }
 
         try{IP = obj.getString("IP");}catch (Exception e){}
-        try{MovieName = obj.getString("movie_name");}catch (Exception e){}
-        try{MovieMode = obj.getString("movie_mode");}catch (Exception e){}
+        try{MovieName = obj.getString("movie_name");
+            editor.putString("movie_name",MovieName);}catch (Exception e){}
+        try{MovieMode = obj.getString("movie_mode");
+            editor.putString("movie_mode",MovieMode);}catch (Exception e){}
         try{editor.putString("current_movie_time",obj.getString("current_movie_time"));
         }catch (Exception e){}
         try{editor.putString("movie_total_time",obj.getString("movie_total_time"));
@@ -141,9 +143,7 @@ public class ExternalReceiver extends BroadcastReceiver {
                     }
                 }
             }
-            if(prefs.getBoolean("isOpen", false)){
-                AndroidMobilePushApp.getIns().updateTheTextView();
-            }
+            AndroidMobilePushApp.getIns().updateTheTextView();
         }catch (Exception e){
             return;
         }

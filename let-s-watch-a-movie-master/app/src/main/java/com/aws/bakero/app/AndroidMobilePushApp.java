@@ -467,7 +467,6 @@ public class AndroidMobilePushApp extends Activity {
         PBar.setMax(200);
         if(MovieTimeInSeconds>0) {
             PBar.setProgress((prefs.getInt("period", 0) * PBar.getMax()) / MovieTimeInSeconds);
-            PBar.setProgress((prefs.getInt("period", 0) * PBar.getMax()) / MovieTimeInSeconds);
             periodTextView.setText(Integer.toString(
                     mProgressBar.getProgress() * 100 / mProgressBar.getMax()) + "%");
         }
@@ -510,8 +509,8 @@ public class AndroidMobilePushApp extends Activity {
         });
         findViewById(R.id.loadingPanel).setVisibility(View.GONE);
 
-        editor.putBoolean("isOpen", true);
-        editor.commit();
+        //editor.putBoolean("isOpen", true);
+        //editor.commit();
         send_status_to_pi("",-1,"","update");
     }
     public void onDestroy(){
@@ -520,8 +519,8 @@ public class AndroidMobilePushApp extends Activity {
 
     public void onStop(){
         super.onStop();
-        editor.putBoolean("isOpen", false);
-        editor.commit();
+        //editor.putBoolean("isOpen", false);
+        //editor.commit();
     }
 
     public void onRestart(){
