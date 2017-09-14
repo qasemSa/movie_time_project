@@ -23,7 +23,10 @@ import os
 import json
 from random import randint
 counter = 0
-is_stopped = 0
+is_stopped = 1
+first_rpi_launch = 1
+movie_name = ""
+movie_mode = "stopped"
 movies = os.listdir("/home/pi/Desktop/sample_movies")
 index = randint(0, len(movies)-1)
 chosen_movie = "/home/pi/Desktop/sample_movies/" + movies[index]
@@ -108,35 +111,20 @@ def getJsonRemote(host,port,username,password,method,parameters):
 
 def kodiRemoteControl(action):
     response = getJsonRemote(config["kodi"]["ip"], config["kodi"]["port"], config["kodi"]["username"], config["kodi"]["password"], action["method"], action["parameters"])
-    print(response)
+    #print(response)
     return response
 
 def closeKodiAfterFinish():
-    movie_name = kodiPlayerGetItemLabel()["item"]["label"]
-    movie_name = movie_name.rsplit('.', 1)[0]
-    movie_prop = kodiPlayerGetProperty(1)
-    movie_total_time = str(movie_prop["totaltime"]["hours"])+":"+str(movie_prop["totaltime"]["minutes"])+":"+str(movie_prop["totaltime"]["seconds"])
-    current_movie_time = str(movie_prop["time"]["hours"])+":"+str(movie_prop["time"]["minutes"])+":"+str(movie_prop["time"]["seconds"])
-    t = time.gmtime()
-    t_time = str(t.tm_year)+":"+str(t.tm_mon)+":"+str(t.tm_mday)+":"+str(t.tm_hour)+":"+str(t.tm_min)+":"+str(t.tm_sec)
-    message = json.dumps({
-                         "IP": ip,
-                         "movie_mode": "stopped",
-                         "movie_name": movie_name,
-                         "movie_total_time": movie_total_time,
-                         "color": color,
-                         "brightness": brightness,
-                         "yeeLight_sittings_changed": 0,
-                         "current_movie_time": current_movie_time,
-                         "gmt_time": t_time
-                         })
+    t = 0
     while kodiIsActive():
-        print("1")
+        t = t
     global is_stopped
+    global movie_mode
     if is_stopped == 0 :
-        mqttc.publish("my/topic",message)
-        publish_to_android("stopped")
+        is_stopped = 1
+        movie_mode = "stopped"
         kodiPlayerStop()
+        publish_to_android("stopped",0)
     
 def kodiInit():
     movies = os.listdir("/home/pi/Desktop/sample_movies")
@@ -175,6 +163,7 @@ def kodiPlayerStop():
     yeelight_set_bright(brightness_before)
     yeelight_set_rgb(color_before)
     os.system("kodi-send --action=\"Quit\"")
+    time.sleep(4)
 
 def kodiPlayPause():
     action = {
@@ -245,7 +234,7 @@ def yeelight_off():
     operate_on_bulb("set_power","\"off\"")
 
 def yeelight_set_bright(brightness):
-    operate_on_bulb("set_bright",str(brightness))
+        operate_on_bulb("set_bright",str(brightness))
 
 def yeelight_set_color(color): #string color
     operate_on_bulb("set_rgb",str(int(colors[color])))
@@ -260,7 +249,7 @@ def yeelight_get_prop():
     global brightness_before
     color_before = ans[0]
     brightness_before = ans[1]
-    print (color_before,brightness_before)
+    print ("before sittings",color_before,brightness_before)
 
 #called while client tries to establish connection with the server
 def on_connect(mqttc, obj, flags, rc):
@@ -276,38 +265,56 @@ def on_subscribe(mqttc, obj, mid, granted_qos):
 #called when a message is received by a topic
 def on_message(mqttc, obj, msg):
     print("Received message from topic: "+msg.topic+" | QoS: "+str(msg.qos)+" | Data Received: "+str(msg.payload))
+    global color
+    global brightness
+    global movie_mode
+    global is_stopped
+    if msg.topic == "$aws/things/RasPi3/shadow/get/accepted":
+        tmp = ((msg.payload).decode("utf-8"))
+        message = json.loads(tmp)
+        color = message["state"]["reported"]["color"]
+        brightness = message["state"]["reported"]["brightness"]
+        print ("first color,bright = ",color,brightness)
     if msg.topic == "$aws/things/RasPi3/shadow/update":
         tmp = ((msg.payload).decode("utf-8"))
         message = json.loads(tmp)
-        change = message["state"]["change"]
+        change = message["state"]["reported"]["change"]
+        if change == "update":
+            publish_to_android(movie_mode,0)
         if change == "yeeLight":
-            global color
-            global brightness
             color = message["state"]["reported"]["color"]
             brightness = message["state"]["reported"]["brightness"]
             publish_yeeLight_settings_to_android()
             print (color,brightness)
-            if brightness > 0:
-                yeelight_on()
-                yeelight_set_bright(brightness*10)
-                yeelight_set_color(color)
-            else :
-                yeelight_off()
+            if movie_mode == "playing":
+                if brightness > 0:
+                    yeelight_on()
+                    yeelight_set_bright(brightness*10)
+                    yeelight_set_color(color)
+                else :
+                    yeelight_off()
         if change == "movie":
             movie_mode = message["state"]["reported"]["movie_mode"]
-            if movie_mode == "play":
-                publish_play_to_android()
-                kodiPlayPause()
-            if movie_mode == "pause":
-                publish_pause_to_android()
-                kodiPlayPause()
-            if movie_mode == "start":
+            if movie_mode == "playing" and is_stopped == 1:
+                yeelight_set_bright(1)
+                brightness = 1
+                yeelight_set_color(color)
+                is_stopped = 0
                 start_movie()
                 #publish_play_to_android()
-            if movie_mode == "stop":
-                publish_to_android("stopped")
+            elif movie_mode == "playing":
+                publish_play_to_android()
+                kodiPlayPause()
+                yeelight_set_bright(brightness*10)
+                yeelight_set_color(color)
+            if movie_mode == "paused":
+                publish_pause_to_android()
+                kodiPlayPause()
+                yeelight_set_bright(brightness_before)
+                yeelight_set_rgb(color_before)
+            if movie_mode == "stopped":
                 kodiPlayerStop()
-                global is_stopped
+                publish_to_android("stopped",0)
                 is_stopped = 1
                 
 #creating a client with client-id=mqtt-test
@@ -332,6 +339,8 @@ print("aaaa")
 #mqttc.subscribe("$aws/things/RasPi3/shadow/update", 1) #The names of these topics start with $aws/things/thingName/shadow."
 mqttc.subscribe("my/topic", 1) #The names of these topics start with $aws/things/thingName/shadow."
 mqttc.subscribe("$aws/things/RasPi3/shadow/update", qos=1)
+mqttc.subscribe("$aws/things/RasPi3/shadow/get", qos=1)
+mqttc.subscribe("$aws/things/RasPi3/shadow/get/accepted", qos=1)
 print("aaaa")
 import json
 import urllib.request as urllibReq
@@ -346,15 +355,23 @@ payload = json.dumps({
     }
 })
 #mqttc.publish("$aws/things/RasPi3/shadow/update",payload)
+mqttc.publish("$aws/things/RasPi3/shadow/get","")
 #mqttc.publish("my/topic"," sss 1")
-def publish_to_android(movie_mode):
-    movie_name = kodiPlayerGetItemLabel()["item"]["label"]
-    movie_name = movie_name.rsplit('.', 1)[0]
-    movie_prop = kodiPlayerGetProperty(1)
-    movie_total_time = str(movie_prop["totaltime"]["hours"])+":"+str(movie_prop["totaltime"]["minutes"])+":"+str(movie_prop["totaltime"]["seconds"])
-    current_movie_time = str(movie_prop["time"]["hours"])+":"+str(movie_prop["time"]["minutes"])+":"+str(movie_prop["time"]["seconds"])
-    t = time.gmtime()
-    t_time = str(t.tm_year)+":"+str(t.tm_mon)+":"+str(t.tm_mday)+":"+str(t.tm_hour)+":"+str(t.tm_min)+":"+str(t.tm_sec)
+def publish_to_android(movie_mode,old_update):
+    global movie_name
+    movie_prop = ""
+    movie_total_time = "0:0:0"
+    current_movie_time = "0:0:0"
+    t = "0:0:0"
+    t_time = "0:0:0"
+    if movie_mode != "stopped": 
+        movie_name = kodiPlayerGetItemLabel()["item"]["label"]
+        movie_name = movie_name.rsplit('.', 1)[0]
+        movie_prop = kodiPlayerGetProperty(1)
+        movie_total_time = str(movie_prop["totaltime"]["hours"])+":"+str(movie_prop["totaltime"]["minutes"])+":"+str(movie_prop["totaltime"]["seconds"])
+        current_movie_time = str(movie_prop["time"]["hours"])+":"+str(movie_prop["time"]["minutes"])+":"+str(movie_prop["time"]["seconds"])
+        t = time.gmtime()
+        t_time = str(t.tm_year)+":"+str(t.tm_mon)+":"+str(t.tm_mday)+":"+str(t.tm_hour)+":"+str(t.tm_min)+":"+str(t.tm_sec)
     message = json.dumps({
                          "IP": ip,
                          "movie_mode": movie_mode,
@@ -362,21 +379,21 @@ def publish_to_android(movie_mode):
                          "movie_total_time": movie_total_time,
                          "color": color,
                          "brightness": brightness,
-                         "yeeLight_sittings_changed": 0,
+                         "yeeLight_sittings_changed": old_update,
                          "current_movie_time": current_movie_time,
-                         "gmt_time": t_time
+                         "gmt_time": t_time,
+                         "change": "movie"
                          })
     mqttc.publish("my/topic",message)
 
 def publish_play_to_android():
-    publish_to_android("playing")
+    publish_to_android("playing",0)
 
 def publish_pause_to_android():
-    publish_to_android("paused")
+    publish_to_android("paused",0)
 
 def publish_yeeLight_settings_to_android():
     message = json.dumps({
-                         "IP": ip,
                          "color": color,
                          "brightness": brightness,
                          "yeeLight_sittings_changed": 1
@@ -406,7 +423,7 @@ def start_movie():
             os._exit(1)
             print("i'm a the son thread")
         else :
-            time.sleep(5)
+            time.sleep(8)
             kodiInit()
             time.sleep(1)
             publish_play_to_android()
@@ -442,7 +459,7 @@ def buttonPressed(x):
 
 GPIO.add_event_detect(18, GPIO.FALLING, buttonPressed, bouncetime=2000)
 yeelight_get_prop()
-publish_yeeLight_settings_to_android()
+publish_to_android(movie_mode,1)
 #automatically handles reconnecting+
 mqttc.loop_forever()
 
