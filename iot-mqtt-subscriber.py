@@ -159,6 +159,8 @@ def kodiPlayerStop():
                 "playerid": 1
         }
         }
+    global first_launch
+    first_launch = True
     kodiRemoteControl(action)
     yeelight_set_bright(brightness_before)
     yeelight_set_rgb(color_before)
@@ -294,6 +296,8 @@ def on_message(mqttc, obj, msg):
                 else :
                     yeelight_off()
         if change == "movie":
+            if not is_correct_mode(message["state"]["reported"]["movie_mode"]):
+                return
             movie_mode = message["state"]["reported"]["movie_mode"]
             if movie_mode == "playing" and is_stopped == 1:
                 yeelight_set_bright(1)
@@ -316,7 +320,19 @@ def on_message(mqttc, obj, msg):
                 kodiPlayerStop()
                 publish_to_android("stopped",0)
                 is_stopped = 1
-                
+def is_correct_mode(new_movie_mode):
+    global movie_mode
+    global is_stopped
+    if new_movie_mode == "playing":
+        if movie_mode == "playing":
+            return False
+    if new_movie_mode == "paused":
+        if movie_mode != "playing":
+            return False
+    if new_movie_mode == "stopped":
+        if movie_mode == "stopped":
+            return False
+    return True
 #creating a client with client-id=mqtt-test
 mqttc = mqtt.Client("qasemSa",True,None,mqtt.MQTTv31)
 
@@ -431,33 +447,35 @@ def start_movie():
             first_launch = False
             
 def buttonPressed(x):
-    global first_launch
-    global is_movie_playing
     global counter
+    global movie_mode
     counter = counter +1
     print ("counter *************** " +str(counter))
-    passed_something = False
-    if first_launch and not passed_something :
-        passed_something = True
+    if movie_mode == "stopped":
+        movie_mode = "playing"
+        is_stopped = 0
         start_movie()
-    else:
-        if not is_movie_playing and not passed_something:
-            #play movie
-            passed_something = True
-            kodiPlayPause()
-            publish_play_to_android()
-            print('play movie')
-            is_movie_playing = True
-            passed_something = True
-        if is_movie_playing and not passed_something :
-            #pause movie
-            passed_something = True
-            kodiPlayPause()
-            publish_pause_to_android()
-            print('pause movie')
-            is_movie_playing = False
+        yeelight_set_bright(1)
+        brightness = 1
+        yeelight_set_color(color)
+    elif movie_mode == "paused":
+        #play movie
+        movie_mode = "playing"
+        publish_play_to_android()
+        kodiPlayPause()
+        yeelight_set_bright(brightness*10)
+        yeelight_set_color(color)
+        print('play movie')
+    elif movie_mode == "playing":
+        #pause movie
+        movie_mode = "paused"
+        publish_pause_to_android()
+        kodiPlayPause()
+        yeelight_set_bright(brightness_before)
+        yeelight_set_rgb(color_before)
+        print('pause movie')
 
-GPIO.add_event_detect(18, GPIO.FALLING, buttonPressed, bouncetime=2000)
+GPIO.add_event_detect(18, GPIO.FALLING, buttonPressed, bouncetime=5000)
 yeelight_get_prop()
 publish_to_android(movie_mode,1)
 #automatically handles reconnecting+
