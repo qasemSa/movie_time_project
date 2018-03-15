@@ -1,2 +1,2 @@
 # movie_time_project
-![alt text](pictures/Picture2.png)
+![alt text](pictures/Picture1.png)
