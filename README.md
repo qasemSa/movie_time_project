@@ -1,2 +1,5 @@
 # movie_time_project
-![alt text](pictures/Picture1.png)
+![project schema](pictures/Picture1.png)
+![alt text](pictures/Picture3.png)
+![alt text](pictures/Picture4.png)
+![alt text](pictures/Picture5.png)
