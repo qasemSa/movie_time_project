@@ -1,2 +1,2 @@
 # movie_time_project
-new
+![alt text](pictures/picture2.png)
